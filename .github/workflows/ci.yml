@@ -53,9 +53,9 @@ jobs:
 
       - name: Run Docker container and check OpenAPI
         run: |
-          docker run -d --name oilgas-api-test -p 8000:8000 oilgas-api
+          docker run -d --name oilgas-api-test -p 8001:8000 oilgas-api
           for i in {1..15}; do
-            if curl -f http://127.0.0.1:8000/openapi.json; then
+            if curl -f http://127.0.0.1:8001/openapi.json; then
               echo "Container up"
               docker stop oilgas-api-test
               exit 0
