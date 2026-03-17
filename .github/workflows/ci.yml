@@ -28,7 +28,7 @@ jobs:
 
       - name: Start API and check OpenAPI
         run: |
-          uvicorn main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          uvicorn app.api:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
           for i in {1..15}; do
             if curl -f http://127.0.0.1:8000/openapi.json; then
               echo "API up"
