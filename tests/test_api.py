@@ -1,0 +1,29 @@
+from fastapi.testclient import TestClient
+from app.api import app  
+
+client = TestClient(app)
+
+API_KEY = "abcdef12345"
+
+def test_acceso_denegado_sin_api_key():
+    """Prueba que si no mandamos la clave, devuelva error 403"""
+    response = client.get("/api/v1/wells?date_query=2026-03-15")
+    assert response.status_code == 403
+    assert response.json() == {"detail": "No se pudo validar la API Key"}
+
+def test_acceso_permitido_con_api_key():
+    """Prueba que si mandamos la clave correcta, devuelva 200 y la lista de pozos"""
+    headers = {"X-API-Key": API_KEY}
+    response = client.get("/api/v1/wells?date_query=2026-03-15", headers=headers)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+def test_forecast_con_api_key():
+    """Prueba que el endpoint de forecast funcione con la clave correcta"""
+    headers = {"X-API-Key": API_KEY}
+    response = client.get(
+        "/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20", 
+        headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["id_well"] == "POZO-001"
