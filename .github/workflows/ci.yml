@@ -26,20 +26,44 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Run unit tests
+        run: |
+          pytest -q
+
       - name: Start API and check OpenAPI
         run: |
           uvicorn app.api:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
           for i in {1..15}; do
             if curl -f http://127.0.0.1:8000/openapi.json; then
               echo "API up"
-              exit 0
+              break
             fi
             sleep 2
           done
-          echo "API did not start correctly"
-          cat uvicorn.log
-          exit 1
+
+          if ! curl -f http://127.0.0.1:8000/openapi.json; then
+            echo "API did not start correctly"
+            cat uvicorn.log
+            exit 1
+          fi
 
       - name: Build Docker image
         run: |
           docker build -t oilgas-api .
+
+      - name: Run Docker container and check OpenAPI
+        run: |
+          docker run -d --name oilgas-api-test -p 8001:8000 oilgas-api
+          for i in {1..15}; do
+            if curl -f http://127.0.0.1:8001/openapi.json; then
+              echo "Container up"
+              docker stop oilgas-api-test
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Container did not start correctly"
+          docker logs oilgas-api-test
+          docker stop oilgas-api-test || true
+          exit 1
