@@ -5,6 +5,7 @@ on:
     branches: [develop]
   push:
     branches:
+      - main
       - develop
       - feature/**
 
@@ -58,12 +59,40 @@ jobs:
             if curl -f http://127.0.0.1:8001/openapi.json; then
               echo "Container up"
               docker stop oilgas-api-test
-              exit 0
+              break
             fi
             sleep 2
           done
 
-          echo "Container did not start correctly"
-          docker logs oilgas-api-test
+          if ! curl -f http://127.0.0.1:8001/openapi.json 2>/dev/null; then
+            echo "Container did not start correctly"
+            docker logs oilgas-api-test
+            docker stop oilgas-api-test || true
+            exit 1
+          fi
           docker stop oilgas-api-test || true
-          exit 1
+
+      - name: Docker Compose smoke test
+        run: |
+          cp .env.example .env
+          docker compose up -d --build
+          for i in {1..20}; do
+            if curl -f http://localhost:8000/openapi.json && \
+               curl -f http://localhost:9090/-/healthy && \
+               curl -f http://localhost:3000/api/health && \
+               curl -f http://localhost:9093/-/healthy; then
+              echo "All services up"
+              break
+            fi
+            sleep 5
+          done
+          docker compose down
+
+      - name: Push image to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:latest
+          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/oilgas-api:latest
+          docker push ghcr.io/${{ github.repository }}/oilgas-api:${{ github.sha }}
