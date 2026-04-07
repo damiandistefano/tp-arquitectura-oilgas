@@ -28,6 +28,15 @@ services:
     depends_on:
       - prometheus
 
+  alertmanager:
+    build: ./alertmanager
+    ports:
+      - "9093:9093"
+    env_file:
+      - .env
+    networks:
+      - monitoring
+
 networks:
   monitoring:
     driver: bridge
