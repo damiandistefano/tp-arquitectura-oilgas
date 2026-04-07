@@ -74,6 +74,7 @@ jobs:
       - name: Docker Compose smoke test
         if: hashFiles('docker-compose.yml') != ''
         run: |
+          pkill -f uvicorn || true
           cp .env.example .env
           docker compose up -d --build
           ALL_UP=false
