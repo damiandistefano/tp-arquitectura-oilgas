@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    networks:
+      - monitoring
+
+  prometheus:
+    build: ./prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    depends_on:
+      - api
+
+networks:
+  monitoring:
+    driver: bridge
