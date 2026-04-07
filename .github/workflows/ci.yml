@@ -5,6 +5,7 @@ on:
     branches: [develop]
   push:
     branches:
+      - main
       - develop
       - feature/**
 
@@ -54,16 +55,97 @@ jobs:
       - name: Run Docker container and check OpenAPI
         run: |
           docker run -d --name oilgas-api-test -p 8001:8000 oilgas-api
+          API_UP=false
           for i in {1..15}; do
             if curl -f http://127.0.0.1:8001/openapi.json; then
               echo "Container up"
-              docker stop oilgas-api-test
-              exit 0
+              API_UP=true
+              break
             fi
             sleep 2
           done
-
-          echo "Container did not start correctly"
-          docker logs oilgas-api-test
           docker stop oilgas-api-test || true
-          exit 1
+          if [ "$API_UP" = false ]; then
+            echo "Container did not start correctly"
+            docker logs oilgas-api-test || true
+            exit 1
+          fi
+
+      - name: Docker Compose smoke test
+        if: hashFiles('docker-compose.yml') != ''
+        run: |
+          pkill -f uvicorn || true
+          cp .env.example .env
+          docker compose up -d --build
+          ALL_UP=false
+          for i in {1..20}; do
+            if curl -sf http://localhost:8000/openapi.json && \
+               curl -sf http://localhost:9090/-/healthy && \
+               curl -sf http://localhost:3000/api/health && \
+               curl -sf http://localhost:9093/-/healthy; then
+              echo "All services up"
+              ALL_UP=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ALL_UP" = false ]; then
+            echo "Not all services started correctly"
+            docker compose logs
+            docker compose down
+            exit 1
+          fi
+
+      - name: Verificar metricas de Prometheus
+        if: hashFiles('docker-compose.yml') != ''
+        run: |
+          curl -sf http://localhost:8000/metrics | grep -q "http_requests_total"
+          echo "Metricas OK"
+
+      - name: Verificar targets de Prometheus
+        if: hashFiles('docker-compose.yml') != ''
+        run: |
+          for i in {1..10}; do
+            STATUS=$(curl -sf "http://localhost:9090/api/v1/targets" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          targets = data['data']['activeTargets']
+          up = [t for t in targets if t['health'] == 'up']
+          print('up' if up else 'down')
+          " 2>/dev/null)
+            if [ "$STATUS" = "up" ]; then
+              echo "Prometheus scraping API OK"
+              break
+            fi
+            sleep 5
+          done
+          if [ "$STATUS" != "up" ]; then
+            echo "Prometheus no esta scrapeando la API"
+            exit 1
+          fi
+
+      - name: Verificar reglas de alerta cargadas
+        if: hashFiles('docker-compose.yml') != ''
+        run: |
+          RULES=$(curl -sf "http://localhost:9090/api/v1/rules" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          groups = data['data']['groups']
+          rules = [r['name'] for g in groups for r in g['rules']]
+          print(len(rules))
+          " 2>/dev/null)
+          if [ "$RULES" -lt 1 ]; then
+            echo "No se cargaron reglas de alerta"
+            exit 1
+          fi
+          echo "Reglas de alerta cargadas: $RULES"
+          docker compose down
+
+      - name: Push image to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:latest
+          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/oilgas-api:latest
+          docker push ghcr.io/${{ github.repository }}/oilgas-api:${{ github.sha }}
