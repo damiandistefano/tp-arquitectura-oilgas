@@ -22,8 +22,19 @@ def test_forecast_con_api_key():
     """Prueba que el endpoint de forecast funcione con la clave correcta"""
     headers = {"X-API-Key": API_KEY}
     response = client.get(
-        "/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20", 
+        "/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20",
         headers=headers
     )
     assert response.status_code == 200
     assert response.json()["id_well"] == "POZO-001"
+
+def test_metrics_endpoint_disponible():
+    """Prueba que el endpoint /metrics de Prometheus este disponible"""
+    response = client.get("/metrics")
+    assert response.status_code == 200
+
+def test_metrics_contiene_datos_http():
+    """Prueba que /metrics exponga metricas de requests HTTP"""
+    client.get("/")
+    response = client.get("/metrics")
+    assert "http_requests_total" in response.text

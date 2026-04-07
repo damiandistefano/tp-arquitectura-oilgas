@@ -1,11 +1,14 @@
 from fastapi import FastAPI, Query, Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(
     title="Oil & Gas Forecast API",
     description="API mock para predicción de producción",
     version="1.0.0"
 )
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 API_KEY_NAME = "X-API-Key"
 API_KEY_VALUE = "abcdef12345"

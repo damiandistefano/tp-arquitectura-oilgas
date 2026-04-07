@@ -1,0 +1,35 @@
+groups:
+  - name: oilgas-api
+    rules:
+      - alert: APIDown
+        expr: up{job="oilgas-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API Oil & Gas caida"
+          description: "La instancia {{ $labels.instance }} lleva mas de 1 minuto sin responder."
+
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{job="oilgas-api",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="oilgas-api"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Alta tasa de errores 5xx"
+          description: "Mas del 5% de los requests estan fallando con 5xx en los ultimos 5 minutos."
+
+      - alert: HighLatency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="oilgas-api"}[5m])) by (le)
+          ) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latencia P95 elevada"
+          description: "El percentil 95 de latencia supera 1 segundo en los ultimos 5 minutos."
