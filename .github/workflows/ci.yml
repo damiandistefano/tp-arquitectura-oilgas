@@ -59,6 +59,14 @@ jobs:
         run: |
           docker build -t oilgas-api .
 
+      - name: Scan Docker image vulnerabilities
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: oilgas-api
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
       - name: Run Docker container and check OpenAPI
         run: |
           docker run -d --name oilgas-api-test -p 8001:8000 oilgas-api

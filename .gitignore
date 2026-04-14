@@ -208,3 +208,13 @@ __marimo__/
 
 # Mac OS
 .DS_Store
+
+# Secrets / cloud credentials
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+aws_credentials.csv
+.aws/
