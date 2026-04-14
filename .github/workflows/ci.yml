@@ -28,7 +28,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run static analysis
+        run: |
+          ruff check .
 
       - name: Run unit tests
         run: |
@@ -54,6 +58,14 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t oilgas-api .
+
+      - name: Scan Docker image vulnerabilities
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: oilgas-api
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "0"
 
       - name: Run Docker container and check OpenAPI
         run: |
