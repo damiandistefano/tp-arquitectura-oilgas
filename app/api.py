@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Query, Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator
+from datetime import datetime, timedelta
+import os
+import random
 
 app = FastAPI(
     title="Oil & Gas Forecast API",
@@ -11,7 +14,8 @@ app = FastAPI(
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 API_KEY_NAME = "X-API-Key"
-API_KEY_VALUE = "abcdef12345"
+API_KEY_VALUE = os.getenv("API_KEY_VALUE", "abcdef12345")
+
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
@@ -47,13 +51,33 @@ def obtener_pronostico(
     api_key: str = Security(get_api_key)
 ):
     """
-    Obtiene el pronóstico de producción de un pozo en un rango de fechas.
+    Obtiene el pronóstico de producción diaria de un pozo entre dos fechas.
     """
+    try:
+        start_dt = datetime.strptime(date_start, "%Y-%m-%d")
+        end_dt = datetime.strptime(date_end, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato de fecha inválido. Use YYYY-MM-DD"
+        )
+
+    if start_dt > end_dt:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La fecha de inicio no puede ser posterior a la fecha de fin"
+        )
+
+    forecast_data = []
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        forecast_data.append({
+            "date": current_dt.strftime("%Y-%m-%d"),
+            "prod": round(random.uniform(100.0, 200.0), 2)
+        })
+        current_dt += timedelta(days=1)
 
     return {
         "id_well": id_well,
-        "data": [
-            {"date": date_start, "prod": 150.5},
-            {"date": date_end, "prod": 149.8}
-        ]
+        "data": forecast_data
     }
