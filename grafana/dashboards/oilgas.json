@@ -461,13 +461,13 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "label_replace(rate(container_network_receive_bytes_total{id=~\"/docker/[a-f0-9]{12,}\"}[5m]), \"short_id\", \"$1\", \"id\", \"/docker/(.{12}).*\")",
-          "legendFormat": "rx - {{short_id}}",
+          "expr": "rate(container_network_receive_bytes_total{id=\"/\",interface!~\"lo|.*dummy.*\"}[5m])",
+          "legendFormat": "rx - {{interface}}",
           "refId": "A"
         },
         {
-          "expr": "label_replace(rate(container_network_transmit_bytes_total{id=~\"/docker/[a-f0-9]{12,}\"}[5m]), \"short_id\", \"$1\", \"id\", \"/docker/(.{12}).*\")",
-          "legendFormat": "tx - {{short_id}}",
+          "expr": "rate(container_network_transmit_bytes_total{id=\"/\",interface!~\"lo|.*dummy.*\"}[5m])",
+          "legendFormat": "tx - {{interface}}",
           "refId": "B"
         }
       ]
