@@ -85,3 +85,11 @@ def obtener_pronostico(
         "id_well": id_well,
         "data": forecast_data
     }
+
+
+@app.get("/api/v1/debug/fail", include_in_schema=False)
+def forzar_error_500(api_key: str = Security(get_api_key)):
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error forzado para testing de alertas"
+    )
