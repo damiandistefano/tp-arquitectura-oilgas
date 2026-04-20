@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from datetime import datetime, timedelta
 import os
 import random
@@ -11,7 +11,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+Instrumentator(excluded_handlers=["/metrics"]).add(
+    metrics.latency(
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0)
+    )
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 API_KEY_NAME = "X-API-Key"
 API_KEY_VALUE = os.getenv("API_KEY_VALUE", "abcdef12345")
