@@ -36,7 +36,7 @@ Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Sla
 **Para forzar una alerta (Ej. API caída):**
 1. Bajá solo el contenedor de la API: `docker-compose stop api`
 2. Esperá ~1 minuto.
-3. Revisá Alertmanager (`http://localhost:9093`), verás la alerta `InstanceDown` disparada.
+3. Revisá Alertmanager (`http://localhost:9093`), verás la alerta `APIDown` disparada.
 4. Volvé a levantarla: `docker-compose start api` y la alerta se resolverá enviando el mensaje de recuperación a Slack/Email.
 
 ## 6. Cómo ver logs
