@@ -31,6 +31,14 @@ async def get_api_key(api_key: str = Security(api_key_header)):
 def ruta_principal():
     return {"mensaje": "Hola equipo! El servidor de FastAPI está funcionando perfecto."}
 
+@app.get("/health", tags=["Monitoring"])
+def health_check():
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "service": "oil-gas-forecast-api"
+    }
+
 @app.get("/api/v1/wells")
 def obtener_pozos(
     date_query: str = Query(..., description="Fecha para la cual se hace la consulta (YYYY-MM-DD)"),
