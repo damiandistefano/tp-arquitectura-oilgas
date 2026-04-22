@@ -33,11 +33,37 @@ Esto levantará los servicios en background.
 Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack o Email, debés configurar el archivo `.env` en la raíz del proyecto (que NO se sube a Git) con las variables:
 `SLACK_WEBHOOK_URL`, `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`.
 
-**Para forzar una alerta (Ej. API caída):**
-1. Bajá solo el contenedor de la API: `docker compose stop api`
-2. Esperá ~1 minuto.
-3. Revisá Alertmanager (`http://localhost:9093`), verás la alerta `APIDown` disparada.
-4. Volvé a levantarla: `docker compose start api` y la alerta se resolverá enviando el mensaje de recuperación a Slack/Email.
+Hay 3 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical), `HighErrorRate` (warning) y `HighLatency` (warning). Para validar que funcionan, cada una se puede disparar manualmente.
+
+En todos los casos, después de seguir los pasos podés ver la alerta:
+* En Prometheus: `http://localhost:9090/alerts` (estado `firing` en rojo).
+* En Alertmanager: `http://localhost:9093` (aparece en la lista con su severidad).
+* En Slack/Email si el `.env` está configurado con credenciales reales.
+
+### 5.1 APIDown (API caída más de 1 minuto)
+1. Bajá el contenedor de la API: `docker compose stop api`
+2. Esperá ~70 segundos.
+3. Ver la alerta `APIDown` en Prometheus y Alertmanager.
+4. Volver a levantarla: `docker compose start api`. La alerta se resuelve.
+
+### 5.2 HighErrorRate (más del 5% de 5xx durante 2 minutos)
+La API tiene un endpoint de debug (`/api/v1/debug/fail`) que siempre devuelve 500.
+```bash
+# Generar 5xx en bucle durante >2 minutos
+for i in {1..120}; do
+  curl -s -H "X-API-Key: abcdef12345" http://localhost:8000/api/v1/debug/fail > /dev/null
+  sleep 1
+done
+```
+Después de ~2 minutos la alerta aparece en estado `firing`. Para que se resuelva, dejá de generar errores y esperá otros ~2 minutos.
+
+### 5.3 HighLatency (P95 mayor a 1s durante 2 minutos)
+El mock responde en milisegundos, así que disparar esta alerta requiere inyectar latencia artificialmente (no está implementado en el código). Queda como alerta configurada y validable por inspección:
+* Regla cargada: `http://localhost:9090/rules` → grupo `oilgas-api` → `HighLatency`.
+* Query subyacente en `http://localhost:9090/graph`:
+  ```
+  histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="oilgas-api"}[5m])) by (le))
+  ```
 
 ## 6. Cómo ver logs
 Para ver los logs de todos los servicios en tiempo real:
