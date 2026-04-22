@@ -35,7 +35,7 @@ groups:
           description: "El percentil 95 de latencia supera 1 segundo en los ultimos 5 minutos."
 
       - alert: APIRecovered
-        expr: up{job="oilgas-api"} == 1 and count_over_time((up{job="oilgas-api"} == bool 0)[30m:15s]) > 0
+        expr: up{job="oilgas-api"} == 1 and max_over_time((up{job="oilgas-api"} == bool 0)[30m:15s]) > 0
         for: 5m
         labels:
           severity: info
