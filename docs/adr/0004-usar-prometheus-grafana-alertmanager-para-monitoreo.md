@@ -12,7 +12,7 @@ Se consideraron tres caminos:
 * ELK o stack similar orientado a logs, que cubre otro caso de uso distinto al de métricas.
 
 ## Decisión
-Se usa **Prometheus** para el scrape de métricas y la evaluación de reglas de alerta, **Grafana** para la visualización (dashboard único provisionado desde un JSON en el repo) y **Alertmanager** para el routing de alertas a Slack y email. Se suma **cAdvisor** como exporter de métricas de containers. Todo corre en el mismo `docker-compose.yml` junto con la API.
+Se usa **Prometheus** para el scrape de métricas y la evaluación de reglas de alerta, **Grafana** para la visualización (dashboard único provisionado desde un JSON en el repo) y **Alertmanager** para el routing de alertas a Slack. Se suma **cAdvisor** como exporter de métricas de containers. Todo corre en el mismo `docker-compose.yml` junto con la API.
 
 ## Consecuencias
 Prometheus + Grafana + Alertmanager son el stack estándar de facto para monitoreo de métricas en sistemas containerizados. Son open-source, gratuitos, reproducibles sin credenciales externas y tienen documentación extensa. La separación entre scraper, visualizador y router de alertas es la convención esperada por cualquiera que conozca el ecosistema.

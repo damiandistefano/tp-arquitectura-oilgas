@@ -26,11 +26,11 @@ Esto levantará los servicios en background.
 ## 4. Cómo entrar a Grafana
 * **URL:** `http://localhost:3000`
 * **Usuario:** `admin`
-* **Contraseña:** `admin` (te pedirá cambiarla en el primer login, podés omitirlo).
+* **Contraseña:** `admin` 
 * Navegar a **Dashboards -> General -> Oil & Gas API Dashboard**.
 
 ## 5. Estrategia y Pruebas de Alertas
-Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack o Email, debés configurar el archivo `.env` en la raíz del proyecto (que NO se sube a Git) con las variables:
+Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack , debés configurar el archivo `.env` en la raíz del proyecto (que NO se sube a Git) con las variables:
 `SLACK_WEBHOOK_URL`, `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`.
 
 Hay 3 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical), `HighErrorRate` (warning) y `HighLatency` (warning). Para validar que funcionan, cada una se puede disparar manualmente.
@@ -38,7 +38,7 @@ Hay 3 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical
 En todos los casos, después de seguir los pasos podés ver la alerta:
 * En Prometheus: `http://localhost:9090/alerts` (estado `firing` en rojo).
 * En Alertmanager: `http://localhost:9093` (aparece en la lista con su severidad).
-* En Slack/Email si el `.env` está configurado con credenciales reales.
+* En Slack si el `.env` está configurado con credenciales reales.
 
 ### 5.1 APIDown (API caída más de 1 minuto)
 1. Bajá el contenedor de la API: `docker compose stop api`
