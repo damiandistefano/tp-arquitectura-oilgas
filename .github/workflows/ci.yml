@@ -77,7 +77,25 @@ jobs:
               API_UP=true
               break
             fi
-            sleep 2
+            sleep 2      
+      - name: Validate deployment files
+        run: |
+          cp .env.example .env
+
+          bash -n scripts/deploy.sh
+          bash -n scripts/rollback.sh
+
+          test -x scripts/deploy.sh
+          test -x scripts/rollback.sh
+          test -x alertmanager/entrypoint.sh
+
+          docker compose -f docker-compose.yml config
+          IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
+
+          if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
+            echo "Sensitive file tracked in git"
+            exit 1
+          fi
           done
           docker stop oilgas-api-test || true
           if [ "$API_UP" = false ]; then
