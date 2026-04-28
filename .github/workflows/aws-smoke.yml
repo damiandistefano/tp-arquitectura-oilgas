@@ -1,35 +1,64 @@
-name: AWS Sandbox Smoke Test
+name: AWS Smoke Test
 
 on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "AWS sandbox base URL, for example http://52.15.50.130"
+        description: "Base URL without trailing slash. Example: http://52.15.50.130"
         required: true
-        default: "http://52.15.50.130"
+        type: string
 
 jobs:
-  aws-smoke-test:
-    name: AWS sandbox smoke test
+  smoke:
     runs-on: ubuntu-latest
 
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      API_KEY: abcdef12345
+
     steps:
+      - name: Normalize base URL
+        run: |
+          echo "BASE_URL=${BASE_URL%/}" >> "$GITHUB_ENV"
+
       - name: Check API OpenAPI
         run: |
-          curl -f "${{ inputs.base_url }}:8000/openapi.json"
+          curl -fsS --max-time 10 "$BASE_URL:8000/openapi.json" > /dev/null
 
       - name: Check API metrics
         run: |
-          curl -f "${{ inputs.base_url }}:8000/metrics"
+          curl -fsS --max-time 10 "$BASE_URL:8000/metrics" | grep -q "http_requests_total"
+
+      - name: Check wells endpoint with API key
+        run: |
+          curl -fsS --max-time 10 \
+            -H "X-API-Key: $API_KEY" \
+            "$BASE_URL:8000/api/v1/wells?date_query=2026-03-15" > /dev/null
+
+      - name: Check forecast endpoint with API key
+        run: |
+          curl -fsS --max-time 10 \
+            -H "X-API-Key: $API_KEY" \
+            "$BASE_URL:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+
+      - name: Check API key rejection
+        run: |
+          STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" \
+            "$BASE_URL:8000/api/v1/wells?date_query=2026-03-15")
+
+          if [ "$STATUS" != "403" ]; then
+            echo "Expected 403 without API key, got $STATUS"
+            exit 1
+          fi
 
       - name: Check Grafana health
         run: |
-          curl -f "${{ inputs.base_url }}:3000/api/health"
+          curl -fsS --max-time 10 "$BASE_URL:3000/api/health" | grep -q '"database": "ok"'
 
       - name: Check Prometheus health
         run: |
-          curl -f "${{ inputs.base_url }}:9090/-/healthy"
+          curl -fsS --max-time 10 "$BASE_URL:9090/-/healthy" > /dev/null
 
       - name: Check Alertmanager health
         run: |
-          curl -f "${{ inputs.base_url }}:9093/-/healthy"
+          curl -fsS --max-time 10 "$BASE_URL:9093/-/healthy" > /dev/null
