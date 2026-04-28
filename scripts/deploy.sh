@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-$HOME/tp-arquitectura-oilgas}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+PROJECT_DIR="${PROJECT_DIR:-${DEFAULT_PROJECT_DIR}}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 API_PORT="${API_PORT:-8000}"
