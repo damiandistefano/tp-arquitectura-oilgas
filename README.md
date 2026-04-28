@@ -8,10 +8,10 @@ API REST mock de predicción de producción de pozos de petróleo/gas, con stack
 
 | Servicio | Qué hace |
 |---|---|
-| **API (FastAPI)** | 3 endpoints REST con autenticación por API Key. Expone métricas en `/metrics` |
-| **Prometheus** | Scrapea las métricas de la API cada 15s. Tiene 3 reglas de alerta configuradas |
+| **API (FastAPI)** | Endpoints REST con autenticación por API Key. Expone métricas en `/metrics` |
+| **Prometheus** | Scrapea las métricas de la API cada 15s. Tiene 4 reglas de alerta configuradas |
 | **Grafana** | Dashboard con 7 paneles: requests, errores, latencia, estado de la API |
-| **Alertmanager** | Manda alertas a Slack y email cuando algo se rompe |
+| **Alertmanager** | Manda alertas a Slack cuando algo se rompe |
 
 ---
 
@@ -43,33 +43,40 @@ curl -H "X-API-Key: abcdef12345" "http://localhost:8000/api/v1/forecast?id_well=
 
 ---
 
-## Configurar alertas (Slack / Email)
+## Configurar alertas (Slack)
 
-Editá el `.env` con tus datos reales:
+Editá el `.env` con un webhook real de Slack:
 
 ```
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-ALERT_EMAIL=tu@email.com
-SMTP_HOST=smtp.tuservidor.com
-SMTP_USER=usuario
-SMTP_PASSWORD=password
 ```
 
-Las alertas están configuradas para dispararse cuando:
-- La API se cae (más de 1 minuto)
-- Más del 5% de los requests devuelven error 5xx
-- La latencia P95 supera 1 segundo
+Las alertas configuradas:
+- `APIDown` (critical): la API no responde por más de 1 minuto.
+- `HighErrorRate` (warning): más del 5% de los requests devuelven 5xx.
+- `HighLatency` (warning): la latencia P95 supera 1 segundo.
+- `APIRecovered` (info): la API volvió a estar disponible tras un downtime y se mantuvo estable 5 minutos.
 
 ---
 
 ## Correr los tests
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 pytest -q
 ```
 
 Hay 5 tests: 3 de autenticación/endpoints y 2 específicos del endpoint `/metrics`.
+
+---
+
+## Deploy a EC2 (sandbox)
+
+El stack se puede desplegar en una instancia EC2 desde la imagen publicada en GHCR. Ver:
+
+- [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md) — flujo completo de deploy con `scripts/deploy.sh` y rollback.
+- [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md) — checklist de validación post-deploy y `scripts/sandbox-smoke.sh`.
+- [docs/deployment-strategy.md](docs/deployment-strategy.md) — estrategia general (Big Bang sobre EC2, GHCR, rollback por SHA).
 
 ---
 
