@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from datetime import datetime, timedelta
 import os
 import random
@@ -11,7 +11,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+Instrumentator(excluded_handlers=["/metrics"]).add(
+    metrics.requests()
+).add(
+    metrics.latency(
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0)
+    )
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 API_KEY_NAME = "X-API-Key"
 API_KEY_VALUE = os.getenv("API_KEY_VALUE", "abcdef12345")
@@ -30,6 +36,14 @@ async def get_api_key(api_key: str = Security(api_key_header)):
 @app.get("/")
 def ruta_principal():
     return {"mensaje": "Hola equipo! El servidor de FastAPI está funcionando perfecto."}
+
+@app.get("/health", tags=["Monitoring"])
+def health_check():
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "service": "oil-gas-forecast-api"
+    }
 
 @app.get("/api/v1/wells")
 def obtener_pozos(
@@ -81,3 +95,11 @@ def obtener_pronostico(
         "id_well": id_well,
         "data": forecast_data
     }
+
+
+@app.get("/api/v1/debug/fail", include_in_schema=False)
+def forzar_error_500(api_key: str = Security(get_api_key)):
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error forzado para testing de alertas"
+    )

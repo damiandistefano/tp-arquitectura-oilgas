@@ -33,3 +33,12 @@ groups:
         annotations:
           summary: "Latencia P95 elevada"
           description: "El percentil 95 de latencia supera 1 segundo en los ultimos 5 minutos."
+
+      - alert: APIRecovered
+        expr: up{job="oilgas-api"} == 1 and max_over_time((up{job="oilgas-api"} == bool 0)[30m:15s]) > 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "API Oil & Gas recuperada"
+          description: "La API {{ $labels.instance }} volvio a estar disponible y lleva 5 minutos estable despues de un periodo de downtime."
