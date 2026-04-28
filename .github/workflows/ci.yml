@@ -16,6 +16,9 @@ jobs:
       contents: read
       packages: write
 
+    env:
+      API_KEY: abcdef12345
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,19 +44,40 @@ jobs:
       - name: Start API and check OpenAPI
         run: |
           uvicorn app.api:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+
+          API_UP=false
           for i in {1..15}; do
-            if curl -f http://127.0.0.1:8000/openapi.json; then
+            if curl -fsS http://127.0.0.1:8000/openapi.json > /dev/null; then
               echo "API up"
+              API_UP=true
               break
             fi
             sleep 2
           done
 
-          if ! curl -f http://127.0.0.1:8000/openapi.json; then
+          if [ "$API_UP" = false ]; then
             echo "API did not start correctly"
             cat uvicorn.log
             exit 1
           fi
+
+      - name: Check API contract
+        run: |
+          curl -fsS -H "X-API-Key: $API_KEY" \
+            "http://127.0.0.1:8000/api/v1/wells?date_query=2026-03-15" > /dev/null
+
+          curl -fsS -H "X-API-Key: $API_KEY" \
+            "http://127.0.0.1:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "http://127.0.0.1:8000/api/v1/wells?date_query=2026-03-15")
+
+          if [ "$STATUS" != "403" ]; then
+            echo "Expected 403 without API key, got $STATUS"
+            exit 1
+          fi
+
+          curl -fsS "http://127.0.0.1:8000/metrics" | grep -q "http_requests_total"
 
       - name: Build Docker image
         run: |
@@ -67,7 +91,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0"
 
-      - name: Run Docker container and check OpenAPI
+      - name: Run Docker container and check API
         run: |
           docker rm -f oilgas-api-test || true
 
@@ -75,7 +99,7 @@ jobs:
 
           API_UP=false
           for i in {1..15}; do
-            if curl -f http://127.0.0.1:8001/openapi.json; then
+            if curl -fsS http://127.0.0.1:8001/openapi.json > /dev/null; then
               echo "Container up"
               API_UP=true
               break
@@ -90,6 +114,11 @@ jobs:
             exit 1
           fi
 
+          curl -fsS -H "X-API-Key: $API_KEY" \
+            "http://127.0.0.1:8001/api/v1/wells?date_query=2026-03-15" > /dev/null
+
+          curl -fsS "http://127.0.0.1:8001/metrics" | grep -q "http_requests_total"
+
           docker rm -f oilgas-api-test || true
 
       - name: Validate deployment files
@@ -98,6 +127,10 @@ jobs:
 
           bash -n scripts/deploy.sh
           bash -n scripts/rollback.sh
+          bash -n scripts/sandbox-smoke.sh
+          bash -n scripts/generate_traffic.sh
+          bash -n scripts/initial_setup.sh
+          bash -n alertmanager/entrypoint.sh
 
           test -x scripts/deploy.sh
           test -x scripts/rollback.sh
@@ -106,8 +139,34 @@ jobs:
           docker compose -f docker-compose.yml config
           IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
 
-          if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
-            echo "Sensitive file tracked in git"
+      - name: Check tracked files and secrets
+        run: |
+          set -e
+
+          TRACKED_BAD_FILES=$(
+            git ls-files \
+              | grep -E '(^|/)(\.env($|\.)|.*\.pem$|.*\.key$|.*\.crt$|.*\.p12$|.*\.pfx$|.*\.pyc$|__pycache__/|\.aws/|\.ssh/)' \
+              | grep -vE '(^|/)\.env\.example$|(^|/)\.env\.sandbox\.example$' || true
+          )
+
+          if [ -n "$TRACKED_BAD_FILES" ]; then
+            echo "Sensitive or generated files tracked in git:"
+            echo "$TRACKED_BAD_FILES"
+            exit 1
+          fi
+
+          PRIVATE_KEY_PATTERN="BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE"" KEY"
+          AWS_SECRET_PATTERN="AWS_SECRET_ACCESS""_KEY"
+          AWS_SECRET_PATTERN_LOWER="aws_secret_access""_key"
+
+          FOUND_SECRET=0
+
+          git grep -n -I -E "$PRIVATE_KEY_PATTERN" -- . && FOUND_SECRET=1 || true
+          git grep -n -I -F "$AWS_SECRET_PATTERN" -- . && FOUND_SECRET=1 || true
+          git grep -n -I -F "$AWS_SECRET_PATTERN_LOWER" -- . && FOUND_SECRET=1 || true
+
+          if [ "$FOUND_SECRET" -eq 1 ]; then
+            echo "Potential secret content found in tracked files"
             exit 1
           fi
 
@@ -156,18 +215,20 @@ jobs:
           pkill -f uvicorn || true
           cp .env.example .env
           docker compose up -d --build
+
           ALL_UP=false
           for i in {1..20}; do
-            if curl -sf http://localhost:8000/openapi.json && \
-               curl -sf http://localhost:9090/-/healthy && \
-               curl -sf http://localhost:3000/api/health && \
-               curl -sf http://localhost:9093/-/healthy; then
+            if curl -sf http://localhost:8000/openapi.json > /dev/null && \
+               curl -sf http://localhost:9090/-/healthy > /dev/null && \
+               curl -sf http://localhost:3000/api/health > /dev/null && \
+               curl -sf http://localhost:9093/-/healthy > /dev/null; then
               echo "All services up"
               ALL_UP=true
               break
             fi
             sleep 5
           done
+
           if [ "$ALL_UP" = false ]; then
             echo "Not all services started correctly"
             docker compose logs
@@ -175,21 +236,29 @@ jobs:
             exit 1
           fi
 
-      - name: Verificar metricas de Prometheus
+          curl -sf -H "X-API-Key: $API_KEY" \
+            "http://localhost:8000/api/v1/wells?date_query=2026-03-15" > /dev/null
+
+          curl -sf -H "X-API-Key: $API_KEY" \
+            "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+
+      - name: Verify Prometheus metrics
         if: hashFiles('docker-compose.yml') != ''
         run: |
           curl -sf http://localhost:8000/metrics | grep -q "http_requests_total"
-          echo "Metricas OK"
+          echo "Metrics OK"
 
-      - name: Verificar targets de Prometheus
+      - name: Verify Prometheus targets
         if: hashFiles('docker-compose.yml') != ''
         run: |
+          STATUS="down"
+
           for i in {1..10}; do
             STATUS=$(curl -sf "http://localhost:9090/api/v1/targets" | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
           targets = data['data']['activeTargets']
-          up = [t for t in targets if t['health'] == 'up']
+          up = [t for t in targets if t['health'] == 'up' and 'oilgas-api' in str(t)]
           print('up' if up else 'down')
           " 2>/dev/null)
             if [ "$STATUS" = "up" ]; then
@@ -198,12 +267,13 @@ jobs:
             fi
             sleep 5
           done
+
           if [ "$STATUS" != "up" ]; then
-            echo "Prometheus no esta scrapeando la API"
+            echo "Prometheus no está scrapeando la API"
             exit 1
           fi
 
-      - name: Verificar reglas de alerta cargadas
+      - name: Verify alert rules
         if: hashFiles('docker-compose.yml') != ''
         run: |
           RULES=$(curl -sf "http://localhost:9090/api/v1/rules" | python3 -c "
@@ -211,13 +281,15 @@ jobs:
           data = json.load(sys.stdin)
           groups = data['data']['groups']
           rules = [r['name'] for g in groups for r in g['rules']]
-          print(len(rules))
+          print('\\n'.join(rules))
           " 2>/dev/null)
-          if [ "$RULES" -lt 1 ]; then
-            echo "No se cargaron reglas de alerta"
-            exit 1
-          fi
-          echo "Reglas de alerta cargadas: $RULES"
+
+          echo "$RULES"
+
+          echo "$RULES" | grep -q "APIDown"
+          echo "$RULES" | grep -q "HighErrorRate"
+          echo "$RULES" | grep -q "HighLatency"
+
           docker compose down
 
       - name: Push image to GHCR

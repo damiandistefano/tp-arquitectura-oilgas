@@ -1,76 +1,198 @@
 # Runbook: Stack Local (Docker Compose)
 
-Este documento describe cómo operar el entorno de desarrollo y pruebas local, incluyendo la API, Prometheus, Grafana, cAdvisor y Alertmanager.
+Este documento describe cómo levantar, validar y diagnosticar el stack local de Fase 1: API, Prometheus, Grafana, cAdvisor y Alertmanager.
 
-## 1. Cómo levantar el stack
-Asegurate de tener Docker y Docker Compose instalados. Ejecutá el siguiente comando en la raíz del proyecto:
+---
+
+## 1. Levantar el stack
+
+Requisitos:
+
+- Docker Desktop o Docker Engine.
+- Docker Compose.
+
+Desde la raíz del repo:
+
 ```bash
+cp .env.example .env
 docker compose up -d --build
 ```
-Esto levantará los servicios en background.
 
-## 2. Cómo verificar la API
-* **URL Base:** `http://localhost:8000`
-* **Health Check:** `http://localhost:8000/health`
-* **Documentación Swagger:** `http://localhost:8000/docs`
-* **Probar el endpoint (requiere API Key):**
-  ```bash
-  curl -H "X-API-Key: abcdef12345" "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
-  ```
+Esto levanta los servicios en background.
 
-## 3. Cómo verificar Prometheus y Alertas
-* **Prometheus UI:** `http://localhost:9090`
-* Ir a **Status -> Targets** para verificar que `oilgas-api` y `cadvisor` estén en estado `UP`.
-* **Alertmanager UI:** `http://localhost:9093` para ver alertas disparadas.
+Para ver estado:
 
-## 4. Cómo entrar a Grafana
-* **URL:** `http://localhost:3000`
-* **Usuario:** `admin`
-* **Contraseña:** `admin` 
-* Navegar a **Dashboards -> General -> Oil & Gas API Dashboard**.
-
-## 5. Estrategia y Pruebas de Alertas
-Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack , debés configurar el archivo `.env` en la raíz del proyecto (que NO se sube a Git) con las variables:
-`SLACK_WEBHOOK_URL`, `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`.
-
-Hay 3 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical), `HighErrorRate` (warning) y `HighLatency` (warning). Para validar que funcionan, cada una se puede disparar manualmente.
-
-En todos los casos, después de seguir los pasos podés ver la alerta:
-* En Prometheus: `http://localhost:9090/alerts` (estado `firing` en rojo).
-* En Alertmanager: `http://localhost:9093` (aparece en la lista con su severidad).
-* En Slack si el `.env` está configurado con credenciales reales.
-
-### 5.1 APIDown (API caída más de 1 minuto)
-1. Bajá el contenedor de la API: `docker compose stop api`
-2. Esperá ~70 segundos.
-3. Ver la alerta `APIDown` en Prometheus y Alertmanager.
-4. Volver a levantarla: `docker compose start api`. La alerta se resuelve.
-
-### 5.2 HighErrorRate (más del 5% de 5xx durante 2 minutos)
-La API tiene un endpoint de debug (`/api/v1/debug/fail`) que siempre devuelve 500.
 ```bash
-# Generar 5xx en bucle durante >2 minutos
+docker compose ps
+```
+
+Para bajar todo:
+
+```bash
+docker compose down
+```
+
+---
+
+## 2. Verificar la API
+
+URLs principales:
+
+- Base URL: `http://localhost:8000`
+- Health: `http://localhost:8000/health`
+- Swagger: `http://localhost:8000/docs`
+- Métricas: `http://localhost:8000/metrics`
+
+Ejemplos:
+
+```bash
+curl http://localhost:8000/health
+
+curl -H "X-API-Key: abcdef12345" \
+  "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
+
+curl -H "X-API-Key: abcdef12345" \
+  "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
+```
+
+Sin API Key, los endpoints funcionales deben devolver `403`.
+
+---
+
+## 3. Prometheus
+
+URL:
+
+```text
+http://localhost:9090
+```
+
+Validaciones:
+
+```bash
+curl -f http://localhost:9090/-/healthy
+curl -f http://localhost:9090/api/v1/targets
+curl -f http://localhost:9090/api/v1/rules
+```
+
+En la UI:
+
+- ir a **Status → Targets**;
+- verificar que `oilgas-api` esté `UP`;
+- verificar que `cadvisor` esté `UP` si está disponible en el entorno.
+
+---
+
+## 4. Grafana
+
+URL:
+
+```text
+http://localhost:3000
+```
+
+Credenciales:
+
+```text
+admin / admin
+```
+
+Dashboard:
+
+```text
+Dashboards → Oil & Gas API Dashboard
+```
+
+Si los paneles muestran `No data`, generar tráfico:
+
+```bash
+bash scripts/generate_traffic.sh
+```
+
+Esperar aproximadamente 20 segundos y refrescar el dashboard.
+
+---
+
+## 5. Alertmanager
+
+URL:
+
+```text
+http://localhost:9093
+```
+
+Las alertas están configuradas en:
+
+```text
+prometheus/rules/alerts.yml
+```
+
+Alertas principales:
+
+- `APIDown`;
+- `HighErrorRate`;
+- `HighLatency`;
+- `APIRecovered`.
+
+Para que Alertmanager envíe a Slack, configurar en `.env`:
+
+```env
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
+Si se usa un webhook dummy, las alertas se ven en la UI pero no se envían a Slack.
+
+---
+
+## 6. Validar alertas
+
+### APIDown
+
+```bash
+docker compose stop api
+```
+
+Esperar aproximadamente 1 minuto y revisar:
+
+- Prometheus: `http://localhost:9090/alerts`
+- Alertmanager: `http://localhost:9093`
+
+Recuperar:
+
+```bash
+docker compose start api
+```
+
+### HighErrorRate
+
+Generar errores 500:
+
+```bash
 for i in {1..120}; do
-  curl -s -H "X-API-Key: abcdef12345" http://localhost:8000/api/v1/debug/fail > /dev/null
+  curl -s -H "X-API-Key: abcdef12345" \
+    http://localhost:8000/api/v1/debug/fail > /dev/null
   sleep 1
 done
 ```
-Después de ~2 minutos la alerta aparece en estado `firing`. Para que se resuelva, dejá de generar errores y esperá otros ~2 minutos.
 
-### 5.3 HighLatency (P95 mayor a 1s durante 2 minutos)
-El mock responde en milisegundos, así que disparar esta alerta requiere inyectar latencia artificialmente (no está implementado en el código). Queda como alerta configurada y validable por inspección:
-* Regla cargada: `http://localhost:9090/rules` → grupo `oilgas-api` → `HighLatency`.
-* Query subyacente en `http://localhost:9090/graph`:
-  ```
-  histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="oilgas-api"}[5m])) by (le))
-  ```
+Después de la ventana definida en Prometheus, la alerta debería entrar en `firing`.
 
-## 6. Cómo ver logs y diagnosticar config
-Para ver los logs de todos los servicios en tiempo real:
+### HighLatency
+
+La API mock responde rápido, por lo que esta alerta queda validada principalmente por inspección de regla y dashboard. Para dispararla end-to-end haría falta inyectar latencia artificial o usar un endpoint lento, lo cual queda fuera del alcance de Fase 1.
+
+---
+
+## 7. Logs
+
+Todos los servicios:
+
 ```bash
 docker compose logs -f
 ```
-Logs de un servicio específico:
+
+Por servicio:
+
 ```bash
 docker compose logs -f api
 docker compose logs -f prometheus
@@ -78,44 +200,105 @@ docker compose logs -f grafana
 docker compose logs -f alertmanager
 docker compose logs -f cadvisor
 ```
-Si Alertmanager o Prometheus no arrancan, lo más común es que el archivo de config tenga un error. Para validar los rules de Prometheus sin levantar el stack:
+
+---
+
+## 8. Validación de configuración
+
+Scripts:
+
 ```bash
-docker exec tp-arquitectura-oilgas-prometheus-1 promtool check rules /etc/prometheus/rules/alerts.yml
-docker exec tp-arquitectura-oilgas-prometheus-1 promtool check config /etc/prometheus/prometheus.yml
+bash -n scripts/deploy.sh
+bash -n scripts/rollback.sh
+bash -n scripts/sandbox-smoke.sh
+bash -n scripts/generate_traffic.sh
+bash -n scripts/initial_setup.sh
 ```
 
-## 7. Troubleshooting
+Compose:
 
-### 7.1 Problemas generales al levantar el stack
-* **Puerto ocupado (8000, 3000, 9090, 9093, 8080):** Identificá el proceso con `lsof -i :<puerto>` y bajalo, o cambiá el mapeo en `docker-compose.yml` (ej. `"8001:8000"`).
-* **Error de permisos Docker (Linux):** Agregá tu usuario al grupo `docker` o ejecutá con `sudo`.
-* **`.env` no existe:** Alertmanager falla al arrancar porque no puede sustituir las variables. Copiá `.env.example` a `.env` antes de levantar el stack.
+```bash
+docker compose config
+IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
+```
 
-### 7.2 Prometheus
-* **Target `oilgas-api` aparece DOWN en `/targets`:** La API no está respondiendo en `api:8000/metrics`. Revisá `docker compose logs api`. Si la API está up, verificá que el puerto no esté mapeado distinto en el compose.
-* **Target `cadvisor` DOWN:** cAdvisor puede tardar 10-15s en responder tras arrancar. Si sigue DOWN después de 30s, revisá `docker compose logs cadvisor` — en Mac a veces los volúmenes de `/sys` o `/var/lib/docker` fallan.
-* **Alerta no aparece en `/alerts`:** Validá los rules con `promtool check rules` (ver sección 6). Si hay error de sintaxis la regla no se carga.
-* **Falta una métrica:** Chequeá directamente el endpoint `/metrics` de la API (`curl http://localhost:8000/metrics`). Si no está ahí, es problema del instrumentator, no de Prometheus.
+Prometheus, desde contenedor:
 
-### 7.3 Grafana
-* **Paneles muestran "No data":** Primera check — rango de tiempo arriba a la derecha (poner "Last 5 minutes"). Segunda check — generar tráfico con `curl` para que haya métricas nuevas. Tercera check — verificar que el datasource está OK en **Connections -> Data sources -> Prometheus -> Save & test**.
-* **"Datasource prometheus was not found":** El dashboard referencia `"uid": "prometheus"` pero el datasource no tiene ese uid explícito. Verificar que `grafana/provisioning/datasources/prometheus.yml` tiene la línea `uid: prometheus`.
-* **Dashboard no aparece:** Revisar que el archivo `grafana/dashboards/oilgas.json` exista y sea JSON válido. Forzar rebuild: `docker compose up -d --build grafana`.
-* **Cambios en el dashboard se pierden al reiniciar:** El provisioner está en modo read-only (`allowUiUpdates: false`) — es intencional. Los cambios tienen que hacerse editando el JSON en el repo.
+```bash
+docker exec tp-arquitectura-oilgas-prometheus-1 promtool check config /etc/prometheus/prometheus.yml
+docker exec tp-arquitectura-oilgas-prometheus-1 promtool check rules /etc/prometheus/rules/alerts.yml
+```
 
-### 7.4 Alertmanager
-* **Alerta disparada en Prometheus pero no llega a Alertmanager:** Verificá en Prometheus `http://localhost:9090/status` que la sección "Alertmanagers" apunte a `alertmanager:9093` y esté activa. Si no, revisá la sección `alerting` de `prometheus.yml`.
-* **Alertmanager no arranca (exit code != 0):** Revisar `docker compose logs alertmanager`. Errores comunes:
-  * `unsupported scheme ""` → las variables `${SLACK_WEBHOOK_URL}` no se sustituyeron porque el `.env` está vacío o mal armado.
-  * YAML inválido → probablemente la edición del template rompió el formato.
-* **No llegan mensajes a Slack/Email:** Verificar que el `.env` tenga credenciales reales (no los placeholders del `.env.example`). El webhook de Slack se prueba con `curl -X POST -H 'Content-Type: application/json' --data '{"text":"test"}' $SLACK_WEBHOOK_URL`.
+---
 
-## 8. Cómo reiniciar servicios
-Si hiciste cambios en el código o configuración, reconstruí y reiniciá:
+## 9. Troubleshooting
+
+### Puerto ocupado
+
+Si algún puerto está ocupado (`8000`, `3000`, `9090`, `9093`, `8080`):
+
+```bash
+lsof -i :8000
+```
+
+En Windows, usar PowerShell:
+
+```powershell
+netstat -ano | findstr :8000
+```
+
+### `.env` no existe
+
+Crear:
+
+```bash
+cp .env.example .env
+```
+
+### Prometheus no scrapea API
+
+Revisar:
+
+```bash
+docker compose logs api
+docker compose logs prometheus
+curl http://localhost:8000/metrics
+```
+
+### Grafana muestra `No data`
+
+1. Generar tráfico con `scripts/generate_traffic.sh`.
+2. Revisar rango temporal del dashboard.
+3. Validar datasource Prometheus.
+4. Confirmar que Prometheus tiene target `oilgas-api` en `UP`.
+
+### Alertmanager no levanta
+
+Revisar:
+
+```bash
+docker compose logs alertmanager
+```
+
+Errores comunes:
+
+- `.env` ausente;
+- `SLACK_WEBHOOK_URL` vacío;
+- YAML inválido;
+- `entrypoint.sh` sin permisos de ejecución.
+
+---
+
+## 10. Reiniciar servicios
+
+Con rebuild:
+
 ```bash
 docker compose up -d --build
 ```
-Si un servicio se colgó (sin cambios en código):
+
+Sin rebuild:
+
 ```bash
 docker compose restart api
 ```

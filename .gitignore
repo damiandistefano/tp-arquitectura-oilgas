@@ -216,3 +216,8 @@ __marimo__/
 *.pfx
 aws_credentials.csv
 .aws/
+# Local assistant/editor state
+.claude/
+
+# Local SSH config and keys
+.ssh/

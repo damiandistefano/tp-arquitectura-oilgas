@@ -1,60 +1,71 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # initial_setup.sh
 #
-# Provisions an EC2 instance and deploys the app.
+# Bootstrap inicial de una instancia EC2 para Fase 1.
 #
-# Prerequisites:
-#   - INSTANCE_IP env variable must be set (e.g. export INSTANCE_IP=1.2.3.4)
-#   - PEM key at ./tp-soft.pem
-#   - rsync installed locally
+# Este script instala Docker/Compose en la EC2, copia los archivos necesarios
+# del proyecto y levanta la API para validar el primer despliegue.
 #
-# Usage:
-#   export INSTANCE_IP=<your-ec2-public-ip>
-#   bash initial_setup.sh
+# Nota:
+#   El flujo recomendado de release es `scripts/deploy.sh` con imagen publicada
+#   en GHCR. Este script queda como ayuda para preparar o reconstruir el sandbox.
+#
+# Prerrequisitos:
+#   - INSTANCE_IP debe estar definido.
+#   - PEM_KEY apunta a la clave .pem local.
+#   - EC2_USER depende de la AMI: ec2-user para Amazon Linux, ubuntu para Ubuntu.
+#   - rsync debe estar instalado localmente.
+#
+# Uso:
+#   INSTANCE_IP=<ec2-public-ip> PEM_KEY=./tu-key.pem EC2_USER=ec2-user bash scripts/initial_setup.sh
 # ---------------------------------------------------------------------------
 
-PEM_KEY="./tp-soft.pem"
-INSTANCE_IP="52.15.50.130"
-EC2_USER="ec2-user"          # Use ec2-user for Amazon Linux AMIs
-APP_REMOTE_DIR="/home/${EC2_USER}/app"
+INSTANCE_IP="${INSTANCE_IP:-}"
+PEM_KEY="${PEM_KEY:-./tp-soft.pem}"
+EC2_USER="${EC2_USER:-ec2-user}"
+APP_REMOTE_DIR="${APP_REMOTE_DIR:-/home/${EC2_USER}/app}"
 
-# --- Validate ---
-if [ -z "${INSTANCE_IP:-}" ]; then
-  echo "ERROR: INSTANCE_IP is not set. Run: export INSTANCE_IP=<ec2-public-ip>"
+if [[ -z "${INSTANCE_IP}" ]]; then
+  echo "ERROR: INSTANCE_IP no está definido."
+  echo "Uso: INSTANCE_IP=<ec2-public-ip> PEM_KEY=./tu-key.pem EC2_USER=ec2-user bash scripts/initial_setup.sh"
   exit 1
 fi
 
-if [ ! -f "$PEM_KEY" ]; then
-  echo "ERROR: PEM key not found at $PEM_KEY"
+if [[ ! -f "${PEM_KEY}" ]]; then
+  echo "ERROR: PEM key no encontrada en ${PEM_KEY}"
   exit 1
 fi
 
-chmod 400 "$PEM_KEY"
+chmod 400 "${PEM_KEY}"
 
-SSH="ssh -i $PEM_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${INSTANCE_IP}"
+SSH_OPTS=(-i "${PEM_KEY}" -o StrictHostKeyChecking=no)
+SSH_TARGET="${EC2_USER}@${INSTANCE_IP}"
 
-echo "==> [1/3] Installing Docker on ${INSTANCE_IP}..."
-$SSH << 'REMOTE'
-set -e
+echo "==> [1/3] Instalando Docker en ${INSTANCE_IP}..."
+ssh "${SSH_OPTS[@]}" "${SSH_TARGET}" << 'REMOTE'
+set -euo pipefail
 
-# Remove broken docker-ce repo if left over from a previous run
 sudo rm -f /etc/yum.repos.d/docker-ce.repo
 
-# Install Docker from Amazon Linux 2023 repos
-sudo dnf install -y docker
+if command -v dnf > /dev/null 2>&1; then
+  sudo dnf install -y docker
+elif command -v apt-get > /dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y docker.io curl
+else
+  echo "ERROR: no se encontró dnf ni apt-get."
+  exit 1
+fi
 
-# Install Compose and Buildx plugins from GitHub releases
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
 
-# Compose release filenames use the uname -m arch directly (x86_64, aarch64)
 COMPOSE_ARCH=$(uname -m)
 curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${COMPOSE_ARCH}" \
   -o /tmp/docker-compose
 
-# Buildx: fetch latest version tag, then build the versioned filename
 BUILDX_VERSION=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
   | grep '"tag_name"' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
 BUILDX_ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
@@ -65,50 +76,60 @@ sudo mv /tmp/docker-compose /tmp/docker-buildx /usr/local/lib/docker/cli-plugins
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose \
               /usr/local/lib/docker/cli-plugins/docker-buildx
 
-# Enable and start Docker
 sudo systemctl enable docker
 sudo systemctl start docker
 
-# Allow current user to run docker without sudo (takes effect on next login)
-sudo usermod -aG docker "$USER"
+sudo usermod -aG docker "$USER" || true
 
-echo "Docker $(docker --version) installed successfully."
-echo "Docker Compose $(docker compose version) installed successfully."
-echo "Docker Buildx $(docker buildx version) installed successfully."
+echo "Docker $(docker --version) instalado correctamente."
+echo "Docker Compose $(docker compose version) instalado correctamente."
+echo "Docker Buildx $(docker buildx version) instalado correctamente."
 REMOTE
 
-echo "==> [2/3] Copying application files to ${INSTANCE_IP}:${APP_REMOTE_DIR}..."
+echo "==> [2/3] Copiando archivos a ${INSTANCE_IP}:${APP_REMOTE_DIR}..."
 rsync -az --progress \
   --exclude '.git' \
+  --exclude '.github' \
+  --exclude '.claude' \
   --exclude '__pycache__' \
   --exclude '*.pyc' \
   --exclude '.pytest_cache' \
+  --exclude '.ruff_cache' \
   --exclude '.mypy_cache' \
   --exclude '.coverage' \
-  -e "ssh -i $PEM_KEY -o StrictHostKeyChecking=no" \
-  . "${EC2_USER}@${INSTANCE_IP}:${APP_REMOTE_DIR}"
+  --exclude '.env' \
+  --exclude '.env.*' \
+  --exclude '*.pem' \
+  --exclude '*.key' \
+  --exclude '*.crt' \
+  --exclude '.aws' \
+  --exclude '.ssh' \
+  --exclude '*.zip' \
+  -e "ssh ${SSH_OPTS[*]}" \
+  . "${SSH_TARGET}:${APP_REMOTE_DIR}"
 
-echo "==> [3/3] Building and starting the API..."
-$SSH << REMOTE
-set -e
+echo "==> [3/3] Levantando API inicial en EC2..."
+ssh "${SSH_OPTS[@]}" "${SSH_TARGET}" << REMOTE
+set -euo pipefail
 cd "${APP_REMOTE_DIR}"
 
-echo "Configurando .env para Alertmanager y permisos para Prometheus..."
-touch .env
-sudo chmod 777 prometheus/prometheus.yml
-
-# Shut down any running containers before redeploying
-if sudo docker compose ps --quiet 2>/dev/null | grep -q .; then
-  echo "Stopping running containers..."
-  sudo docker compose down
+if [[ ! -f .env ]]; then
+  cp .env.example .env
 fi
 
-sudo docker compose up -d --build api
+if docker compose ps --quiet 2>/dev/null | grep -q .; then
+  echo "Bajando contenedores existentes..."
+  docker compose down
+fi
+
+docker compose up -d --build api
+
 echo ""
-echo "Container status:"
-sudo docker compose ps api
+echo "Estado del contenedor:"
+docker compose ps api
 REMOTE
 
 echo ""
-echo "Done. App is running at http://${INSTANCE_IP}:8000"
-echo "Logs: ssh -i $PEM_KEY ${EC2_USER}@${INSTANCE_IP} 'cd ${APP_REMOTE_DIR} && sudo docker compose logs -f api'"
+echo "Bootstrap terminado."
+echo "API:  http://${INSTANCE_IP}:8000/docs"
+echo "Logs: ssh -i ${PEM_KEY} ${SSH_TARGET} 'cd ${APP_REMOTE_DIR} && docker compose logs -f api'"
