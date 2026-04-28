@@ -30,10 +30,9 @@ Esto levantará los servicios en background.
 * Navegar a **Dashboards -> General -> Oil & Gas API Dashboard**.
 
 ## 5. Estrategia y Pruebas de Alertas
-Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack , debés configurar el archivo `.env` en la raíz del proyecto (que NO se sube a Git) con las variables:
-`SLACK_WEBHOOK_URL`, `ALERT_EMAIL`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`.
+Las alertas están configuradas en Alertmanager. Para que envíen mensajes a Slack, configurá `SLACK_WEBHOOK_URL` en el archivo `.env` de la raíz del proyecto (que NO se sube a Git).
 
-Hay 3 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical), `HighErrorRate` (warning) y `HighLatency` (warning). Para validar que funcionan, cada una se puede disparar manualmente.
+Hay 4 alertas configuradas en `prometheus/rules/alerts.yml`: `APIDown` (critical), `HighErrorRate` (warning), `HighLatency` (warning) y `APIRecovered` (info). Para validar las tres primeras, se pueden disparar manualmente:
 
 En todos los casos, después de seguir los pasos podés ver la alerta:
 * En Prometheus: `http://localhost:9090/alerts` (estado `firing` en rojo).
@@ -108,7 +107,7 @@ docker exec tp-arquitectura-oilgas-prometheus-1 promtool check config /etc/prome
 * **Alertmanager no arranca (exit code != 0):** Revisar `docker compose logs alertmanager`. Errores comunes:
   * `unsupported scheme ""` → las variables `${SLACK_WEBHOOK_URL}` no se sustituyeron porque el `.env` está vacío o mal armado.
   * YAML inválido → probablemente la edición del template rompió el formato.
-* **No llegan mensajes a Slack/Email:** Verificar que el `.env` tenga credenciales reales (no los placeholders del `.env.example`). El webhook de Slack se prueba con `curl -X POST -H 'Content-Type: application/json' --data '{"text":"test"}' $SLACK_WEBHOOK_URL`.
+* **No llegan mensajes a Slack:** Verificar que el `.env` tenga el `SLACK_WEBHOOK_URL` real (no el placeholder del `.env.example`). El webhook se prueba con `curl -X POST -H 'Content-Type: application/json' --data '{"text":"test"}' $SLACK_WEBHOOK_URL`.
 
 ## 8. Cómo reiniciar servicios
 Si hiciste cambios en el código o configuración, reconstruí y reiniciá:
