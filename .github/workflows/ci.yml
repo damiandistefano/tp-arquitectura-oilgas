@@ -69,7 +69,10 @@ jobs:
 
       - name: Run Docker container and check OpenAPI
         run: |
+          docker rm -f oilgas-api-test || true
+
           docker run -d --name oilgas-api-test -p 8001:8000 oilgas-api
+
           API_UP=false
           for i in {1..15}; do
             if curl -f http://127.0.0.1:8001/openapi.json; then
@@ -79,10 +82,71 @@ jobs:
             fi
             sleep 2
           done
-          docker stop oilgas-api-test || true
+
           if [ "$API_UP" = false ]; then
             echo "Container did not start correctly"
             docker logs oilgas-api-test || true
+            docker rm -f oilgas-api-test || true
+            exit 1
+          fi
+
+          docker rm -f oilgas-api-test || true
+
+      - name: Validate deployment files
+        run: |
+          cp .env.example .env
+
+          bash -n scripts/deploy.sh
+          bash -n scripts/rollback.sh
+
+          test -x scripts/deploy.sh
+          test -x scripts/rollback.sh
+          test -x alertmanager/entrypoint.sh
+
+          docker compose -f docker-compose.yml config
+          IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
+
+          if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
+            echo "Sensitive file tracked in git"
+            exit 1
+          fi
+
+      - name: Validate GHCR deploy compose with local image
+        run: |
+          set -e
+
+          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:ci
+
+          cleanup() {
+            COMPOSE_PROJECT_NAME=deployvalidation \
+            IMAGE_TAG=ci \
+            API_PORT=8002 \
+            docker compose -f docker-compose.deploy.yml down || true
+          }
+
+          trap cleanup EXIT
+
+          COMPOSE_PROJECT_NAME=deployvalidation \
+          IMAGE_TAG=ci \
+          API_PORT=8002 \
+          docker compose -f docker-compose.deploy.yml up -d
+
+          API_UP=false
+          for i in {1..20}; do
+            if curl -sf http://localhost:8002/openapi.json > /dev/null; then
+              echo "Deploy compose API is healthy"
+              API_UP=true
+              break
+            fi
+            sleep 3
+          done
+
+          if [ "$API_UP" = false ]; then
+            echo "Deploy compose API did not become healthy"
+            COMPOSE_PROJECT_NAME=deployvalidation \
+            IMAGE_TAG=ci \
+            API_PORT=8002 \
+            docker compose -f docker-compose.deploy.yml logs
             exit 1
           fi
 
