@@ -155,7 +155,17 @@ jobs:
             exit 1
           fi
 
-          if git grep -n -I -E 'BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY|AWS_SECRET_ACCESS_KEY|aws_secret_access_key' -- .; then
+          PRIVATE_KEY_PATTERN="BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE"" KEY"
+          AWS_SECRET_PATTERN="AWS_SECRET_ACCESS""_KEY"
+          AWS_SECRET_PATTERN_LOWER="aws_secret_access""_key"
+
+          FOUND_SECRET=0
+
+          git grep -n -I -E "$PRIVATE_KEY_PATTERN" -- . && FOUND_SECRET=1 || true
+          git grep -n -I -F "$AWS_SECRET_PATTERN" -- . && FOUND_SECRET=1 || true
+          git grep -n -I -F "$AWS_SECRET_PATTERN_LOWER" -- . && FOUND_SECRET=1 || true
+
+          if [ "$FOUND_SECRET" -eq 1 ]; then
             echo "Potential secret content found in tracked files"
             exit 1
           fi
