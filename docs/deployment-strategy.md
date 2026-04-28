@@ -4,210 +4,187 @@
 
 La Fase 1 del proyecto implementa un mock de API REST para consulta de pronósticos de producción, junto con un stack de monitoreo compuesto por Prometheus, Grafana, Alertmanager y cAdvisor.
 
-El sistema se ejecuta en contenedores Docker y puede levantarse localmente o en un ambiente sandbox mediante Docker Compose.
+El sistema se ejecuta en contenedores Docker y puede levantarse localmente o en una instancia EC2 sandbox mediante Docker Compose.
+
+El objetivo principal no es tener una arquitectura productiva completa, sino validar una base técnica reproducible, observable y defendible para futuras fases.
+
+---
 
 ## Artefacto desplegable
 
 El artefacto principal del sistema es la imagen Docker de la API.
 
-El pipeline de CI/CD construye la imagen y la publica en GitHub Container Registry (GHCR), usando dos tags:
+El pipeline de CI/CD construye la imagen y la publica en GitHub Container Registry (GHCR), usando dos tipos de tag:
 
-- `latest`: última versión disponible.
-- commit SHA: versión inmutable asociada a un commit específico.
+- `latest`: última versión disponible;
+- commit SHA: versión trazable e inmutable asociada a un commit específico.
 
-Esto permite mantener trazabilidad entre código fuente, imagen Docker y despliegue.
+Esto permite mantener trazabilidad entre:
+
+```text
+commit -> build -> imagen Docker -> deploy
+```
+
+Para despliegues reproducibles se recomienda usar el commit SHA, no `latest`.
+
+---
 
 ## Compose de deploy basado en GHCR
 
-Para el despliegue reproducible de la API se utiliza el archivo `docker-compose.deploy.yml`.
+Para el despliegue reproducible de la API se utiliza `docker-compose.deploy.yml`.
 
-A diferencia del `docker-compose.yml`, que levanta el stack completo y puede construir las imágenes localmente, `docker-compose.deploy.yml` está pensado para ejecutar la API a partir de una imagen Docker ya publicada en GHCR.
+A diferencia de `docker-compose.yml`, que levanta el stack completo y puede construir imágenes localmente, `docker-compose.deploy.yml` ejecuta la API desde una imagen ya publicada en GHCR.
 
-Esto evita buildear manualmente la imagen dentro de la instancia EC2 y permite desplegar un artefacto previamente validado por el pipeline de CI/CD.
+Esto evita buildear manualmente dentro de la EC2 y permite desplegar un artefacto previamente validado por CI.
 
-La imagen utilizada tiene el siguiente formato:
+Formato de imagen:
 
 ```text
 ghcr.io/damiandistefano/tp-arquitectura-oilgas/oilgas-api:<tag>
 ```
 
-El tag se define mediante la variable `IMAGE_TAG`.
+El tag se define mediante `IMAGE_TAG`.
 
-Por defecto se usa `latest`, pero para despliegues trazables se recomienda usar el commit SHA generado por GitHub Actions.
+---
 
-## Estrategia de deployment para Fase 1
+## Estrategia elegida para Fase 1
 
-Para esta fase se adopta una estrategia de deployment simple tipo **Big Bang Deployment** sobre un ambiente sandbox.
+Para esta fase se adopta una estrategia simple de **Big Bang Deployment** sobre un ambiente sandbox.
 
-Esto significa que el servicio se actualiza reemplazando la versión anterior por la nueva versión del contenedor.
+Esto significa que el servicio se actualiza reemplazando la versión anterior del contenedor por una nueva.
 
-Se considera aceptable para esta fase porque:
+Se considera aceptable porque:
 
 - el sistema es un mock técnico;
 - no hay usuarios productivos reales;
 - el riesgo operativo es bajo;
-- el objetivo principal es validar la arquitectura base, el CI/CD, Docker, GHCR y observabilidad.
+- el objetivo principal es validar API, CI/CD, Docker, GHCR, monitoreo y operación básica;
+- una estrategia más compleja agregaría overhead innecesario para esta adenda.
+
+---
 
 ## Ambiente objetivo
 
-El ambiente objetivo de despliegue es una instancia sandbox basada en AWS EC2.
+El ambiente objetivo es una instancia AWS EC2 usada como sandbox.
 
-El sandbox completo expone los siguientes servicios:
+Servicios del stack completo:
 
-- API: puerto `8000`.
-- Grafana: puerto `3000`.
-- Prometheus: puerto `9090`.
-- Alertmanager: puerto `9093`.
-- cAdvisor: puerto `8080`.
+| Servicio | Puerto |
+|---|---|
+| API | `8000` |
+| Grafana | `3000` |
+| Prometheus | `9090` |
+| Alertmanager | `9093` |
+| cAdvisor | `8080` |
 
-El stack completo fue validado con `docker-compose.yml`.
+El stack completo se valida con `docker-compose.yml`.
 
-Además, se validó en paralelo el flujo de deploy reproducible de la API desde GHCR usando `docker-compose.deploy.yml`, sin pisar el stack principal. Para esta validación se utilizó el puerto `8001` dentro de la EC2.
+El flujo reproducible de API desde GHCR se valida con `docker-compose.deploy.yml`.
 
-El puerto `8001` no necesariamente queda expuesto públicamente, porque su acceso externo depende de las reglas configuradas en el Security Group de AWS. La validación mínima de ese flujo se realiza desde la propia EC2 contra `localhost:8001`.
+---
 
-## Flujo esperado de deploy
-
-El flujo esperado será:
+## Flujo esperado de release
 
 1. Merge de cambios validados hacia `main`.
 2. Ejecución del pipeline de CI/CD.
-3. Construcción de imagen Docker.
-4. Publicación de imagen en GHCR.
-5. Actualización del servicio en el ambiente sandbox usando `docker-compose.deploy.yml`.
-6. Ejecución de health check post-deploy.
+3. Tests y análisis estático.
+4. Build de imagen Docker.
+5. Escaneo de vulnerabilidades con Trivy.
+6. Publicación de imagen en GHCR.
+7. Deploy controlado en EC2 usando `scripts/deploy.sh`.
+8. Health check post-deploy.
+9. Smoke test del sandbox.
 
-## Validación realizada en AWS
-
-Se validaron dos caminos complementarios:
-
-### Stack completo de sandbox
-
-El stack completo fue levantado en EC2 usando `docker-compose.yml`.
-
-Servicios validados:
-
-```text
-http://52.15.50.130:8000/docs
-http://52.15.50.130:3000
-http://52.15.50.130:9090
-http://52.15.50.130:9093
-```
-
-También se validó cAdvisor en el puerto `8080` desde la instancia.
-
-### Deploy reproducible desde GHCR
-
-Se validó el deploy de la API desde GHCR usando:
-
-```bash
-COMPOSE_PROJECT_NAME=ghcrdeploy \
-PROJECT_DIR=/home/ec2-user/app \
-API_PORT=8001 \
-IMAGE_TAG=latest \
-./scripts/deploy.sh
-```
-
-La validación post-deploy fue:
-
-```bash
-curl -f http://localhost:8001/openapi.json
-```
-
-El resultado confirmó que la imagen fue descargada desde GHCR y que la API quedó saludable en el puerto `8001`.
+---
 
 ## Health check post-deploy
 
-Para validar la API expuesta públicamente:
+Para validar API localmente en EC2:
 
 ```bash
-curl -f http://<IP_PUBLICA>:8000/openapi.json
+curl -f http://localhost:8000/openapi.json
 ```
 
-Para validar el deploy paralelo desde GHCR dentro de la EC2:
+Para validar desde afuera:
 
 ```bash
-curl -f http://localhost:8001/openapi.json
+curl -f http://<EC2_PUBLIC_IP>:8000/openapi.json
 ```
 
-También se puede validar manualmente accediendo a:
+Para validar endpoint protegido:
 
-```text
-http://<IP_PUBLICA>:8000/docs
+```bash
+curl -H "X-API-Key: abcdef12345" \
+  "http://<EC2_PUBLIC_IP>:8000/api/v1/wells?date_query=2026-03-15"
 ```
+
+---
 
 ## Rollback
 
-La estrategia de rollback se basa en volver a desplegar una imagen anterior identificada por su commit SHA o tag.
+La estrategia de rollback se basa en desplegar una imagen anterior identificada por su commit SHA o tag.
 
-Como cada imagen publicada en GHCR queda asociada a un commit específico, se puede recuperar una versión previa sin depender del estado actual del código fuente.
+Como cada imagen publicada en GHCR queda asociada a un commit, se puede recuperar una versión previa sin depender del estado actual del código fuente.
 
-Flujo de rollback esperado:
+Flujo:
 
-1. Identificar el commit SHA de la última versión estable.
-2. Descargar la imagen correspondiente desde GHCR.
-3. Reiniciar el servicio usando esa imagen.
-4. Ejecutar nuevamente el health check.
+1. identificar commit SHA estable;
+2. ejecutar rollback con ese tag;
+3. levantar contenedor;
+4. ejecutar health check;
+5. correr smoke test si aplica.
 
-En la práctica, el rollback se realiza ejecutando `scripts/rollback.sh` con el tag o commit SHA deseado.
-
-Ejemplo:
+Comando:
 
 ```bash
-COMPOSE_PROJECT_NAME=ghcrdeploy \
-PROJECT_DIR=/home/ec2-user/app \
-API_PORT=8001 \
 ./scripts/rollback.sh <commit_sha_anterior>
 ```
 
-Para la validación de Fase 1 se probó el flujo usando `latest` como tag:
+---
 
-```bash
-COMPOSE_PROJECT_NAME=ghcrdeploy \
-PROJECT_DIR=/home/ec2-user/app \
-API_PORT=8001 \
-./scripts/rollback.sh latest
-```
+## Secretos y configuración
 
-Luego del rollback se vuelve a ejecutar el health check contra `/openapi.json`.
+El archivo `.env` no se commitea.
 
-## Secretos y variables
-
-El archivo `.env` no se commitea al repositorio.
-
-En EC2 se usa para configurar variables necesarias para servicios como Alertmanager. Por ejemplo:
+Se usa para variables de entorno como:
 
 ```env
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXXXXXXX/XXXXXXXX/XXXXXXXX
 ```
 
-El valor real debe configurarse en el servidor o mediante secretos del entorno, no en Git.
+En sandbox puede usarse un valor dummy para permitir que Alertmanager levante sin exponer credenciales reales.
+
+---
 
 ## Estrategias no implementadas en Fase 1
 
-No se implementan en esta fase:
+No se implementan:
 
-- Canary deployment.
-- Blue-green deployment.
-- Rolling updates.
-- Kubernetes.
-- Auto-scaling.
-- Multi-region deployment.
-- Deploy automático desde GitHub Actions hacia EC2.
+- canary deployment;
+- blue-green deployment;
+- rolling updates reales;
+- Kubernetes;
+- auto-scaling;
+- multi-region deployment;
+- separación completa dev/staging/prod;
+- deploy automático por SSH desde GitHub Actions hacia EC2;
+- performance testing formal con Locust.
 
-Estas estrategias se consideran fuera del alcance actual porque agregarían complejidad operativa innecesaria para un mock técnico.
+Estas estrategias se consideran fuera del alcance de esta adenda. Son válidas para una fase posterior si el sistema pasa de mock técnico a servicio productivo real.
 
-## Decisión
+---
+
+## Justificación de la decisión
 
 Para Fase 1 se prioriza una estrategia simple, trazable y reproducible:
 
-- Docker para contenerización.
-- Docker Compose para levantar el stack completo de sandbox.
-- `docker-compose.deploy.yml` para desplegar la API desde una imagen publicada.
-- GHCR como registry de imágenes.
-- GitHub Actions para CI/CD.
-- EC2 como ambiente sandbox.
-- Health check post-deploy como validación mínima.
-- Rollback simple mediante commit SHA o tag.
+- Docker para contenerización;
+- Docker Compose para stack local/sandbox;
+- GHCR como registry;
+- GitHub Actions para CI/CD hasta publicación del artefacto;
+- EC2 como sandbox;
+- health check post-deploy;
+- rollback por tag/SHA;
+- Prometheus/Grafana/Alertmanager/cAdvisor para observabilidad.
 
-Esta decisión permite validar el sistema completo sin sobrediseñar la infraestructura, y a la vez deja preparado un camino reproducible para desplegar la API desde imágenes versionadas en GHCR.
+Esta decisión aplica KISS/YAGNI: se implementa lo necesario para validar arquitectura, operación y observabilidad sin sobrediseñar una infraestructura productiva antes de necesitarla.
