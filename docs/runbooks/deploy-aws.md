@@ -300,3 +300,12 @@ Cuando el equipo cierre Fase 1:
 4. desplegar en sandbox;
 5. validar health check;
 6. crear tag de release, por ejemplo `v0.1.0`.
+
+## Validación post-deploy
+
+Para el checklist completo de validación funcional del sandbox (API, Prometheus, Grafana, Alertmanager) y troubleshooting operativo, ver [sandbox-validation.md](sandbox-validation.md).
+
+El smoke test local contra la EC2 se puede correr con:
+```bash
+bash scripts/sandbox-smoke.sh IP_PUBLICA
+```
