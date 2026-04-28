@@ -1,94 +1,293 @@
 # tp-arquitectura-oilgas
 
-API REST mock de predicción de producción de pozos de petróleo/gas, con stack completo de monitoreo.
+API REST mock para consulta de pronósticos de producción de pozos de petróleo/gas, con contenedores Docker, CI/CD, monitoreo técnico y despliegue en sandbox.
+
+El objetivo de esta Fase 1 es validar una base técnica de desarrollo ágil: API mock, contrato OpenAPI, Docker, pipeline de CI, artefacto Docker publicable, observabilidad y operación básica del sandbox.
 
 ---
 
-## Lo que hay en este repo
+## Componentes
 
-| Servicio | Qué hace |
+| Componente | Qué hace |
 |---|---|
-| **API (FastAPI)** | Endpoints REST con autenticación por API Key. Expone métricas en `/metrics` |
-| **Prometheus** | Scrapea las métricas de la API cada 15s. Tiene 4 reglas de alerta configuradas |
-| **Grafana** | Dashboard con 7 paneles: requests, errores, latencia, estado de la API |
-| **Alertmanager** | Manda alertas a Slack cuando algo se rompe |
+| **API (FastAPI)** | Expone endpoints REST protegidos con API Key y documentación OpenAPI/Swagger. |
+| **Prometheus** | Scrapea métricas de la API y evalúa reglas de alerta. |
+| **Grafana** | Muestra dashboard técnico con requests, errores, latencia, disponibilidad y métricas de contenedores. |
+| **Alertmanager** | Recibe alertas de Prometheus y puede rutearlas a Slack mediante webhook. |
+| **cAdvisor** | Expone métricas de recursos de contenedores para Prometheus. |
+| **GHCR** | Registry donde se publica la imagen Docker de la API desde CI. |
 
 ---
 
-## Cómo levantarlo
+## API mock
 
-Necesitás tener Docker Desktop corriendo.
+La API implementa los endpoints pedidos para la integración externa de pronósticos.
+
+### Autenticación
+
+Todos los endpoints funcionales requieren el header:
+
+```http
+X-API-Key: abcdef12345
+```
+
+Si la API Key falta o es incorrecta, la API devuelve:
+
+```http
+403 Forbidden
+```
+
+### Endpoints principales
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/api/v1/wells?date_query=YYYY-MM-DD` | Devuelve pozos activos para la fecha consultada. |
+| `GET` | `/api/v1/forecast?id_well=POZO-001&date_start=YYYY-MM-DD&date_end=YYYY-MM-DD` | Devuelve un pronóstico mock diario para el pozo y rango indicado. |
+| `GET` | `/health` | Health check del servicio. |
+| `GET` | `/metrics` | Métricas Prometheus. |
+| `GET` | `/docs` | Documentación Swagger/OpenAPI. |
+
+Ejemplos:
+
+```bash
+curl -H "X-API-Key: abcdef12345" \
+  "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
+
+curl -H "X-API-Key: abcdef12345" \
+  "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
+```
+
+La respuesta de `/api/v1/forecast` usa datos mock determinísticos. Esto permite repetir pruebas y comparar resultados sin depender de un modelo predictivo real, que queda fuera del alcance de la Fase 1.
+
+---
+
+## Cómo levantar el stack local
+
+Requisitos:
+
+- Docker Desktop o Docker Engine.
+- Docker Compose.
+
+Desde la raíz del repo:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Y listo. Los servicios quedan en:
+Servicios locales:
 
 | URL | Qué es | Credenciales |
 |---|---|---|
-| http://localhost:8000/docs | Swagger de la API | Header: `X-API-Key: abcdef12345` |
+| http://localhost:8000/docs | Swagger de la API | Header `X-API-Key: abcdef12345` |
 | http://localhost:8000/metrics | Métricas Prometheus | — |
 | http://localhost:9090 | Prometheus | — |
-| http://localhost:3000 | Grafana | admin / admin |
+| http://localhost:3000 | Grafana | `admin` / `admin` |
 | http://localhost:9093 | Alertmanager | — |
+| http://localhost:8080 | cAdvisor | — |
 
-Para ver datos en el dashboard de Grafana, tirarle algunos requests a la API:
+Para generar tráfico y poblar el dashboard:
 
 ```bash
-curl -H "X-API-Key: abcdef12345" "http://localhost:8000/api/v1/wells?date_query=2024-01-01"
-curl -H "X-API-Key: abcdef12345" "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2024-01-01&date_end=2024-01-31"
+bash scripts/generate_traffic.sh
+```
+
+Para bajar el stack:
+
+```bash
+docker compose down
 ```
 
 ---
 
-## Configurar alertas (Slack)
+## Alertas
 
-Editá el `.env` con un webhook real de Slack:
+Las reglas de alerta están definidas en `prometheus/rules/alerts.yml`.
 
-```
+Alertas principales:
+
+- `APIDown`: la API no responde.
+- `HighErrorRate`: tasa alta de errores 5xx.
+- `HighLatency`: latencia P95 por encima del umbral definido.
+- `APIRecovered`: la API vuelve a estar disponible luego de una caída.
+
+Alertmanager puede enviar alertas a Slack si se configura un webhook real en `.env`:
+
+```env
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-Las alertas configuradas:
-- `APIDown` (critical): la API no responde por más de 1 minuto.
-- `HighErrorRate` (warning): más del 5% de los requests devuelven 5xx.
-- `HighLatency` (warning): la latencia P95 supera 1 segundo.
-- `APIRecovered` (info): la API volvió a estar disponible tras un downtime y se mantuvo estable 5 minutos.
+En sandbox se puede usar un valor dummy para validar que Alertmanager levante sin exponer credenciales reales. En ese caso, las alertas se ven en Prometheus/Alertmanager pero no llegan a Slack.
 
 ---
 
-## Correr los tests
+## Tests y validaciones locales
+
+Instalar dependencias de desarrollo:
 
 ```bash
 pip install -r requirements-dev.txt
+```
+
+Correr análisis estático y tests:
+
+```bash
+ruff check .
 pytest -q
 ```
 
-Hay 5 tests: 3 de autenticación/endpoints y 2 específicos del endpoint `/metrics`.
+Validar scripts y Docker Compose:
+
+```bash
+bash -n scripts/deploy.sh
+bash -n scripts/rollback.sh
+bash -n scripts/sandbox-smoke.sh
+bash -n scripts/generate_traffic.sh
+bash -n scripts/initial_setup.sh
+
+docker compose config
+docker compose build api
+```
 
 ---
 
-## Deploy a EC2 (sandbox)
+## CI/CD
 
-El stack se puede desplegar en una instancia EC2 desde la imagen publicada en GHCR. Ver:
+El pipeline de GitHub Actions ejecuta:
 
-- [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md) — flujo completo de deploy con `scripts/deploy.sh` y rollback.
-- [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md) — checklist de validación post-deploy y `scripts/sandbox-smoke.sh`.
-- [docs/deployment-strategy.md](docs/deployment-strategy.md) — estrategia general (Big Bang sobre EC2, GHCR, rollback por SHA).
+- instalación de dependencias;
+- análisis estático con Ruff;
+- tests automatizados con Pytest;
+- validación de OpenAPI;
+- validación de endpoints protegidos por API Key;
+- build de imagen Docker;
+- escaneo de vulnerabilidades con Trivy;
+- smoke test del contenedor;
+- validación de scripts;
+- validación de `docker-compose.yml` y `docker-compose.deploy.yml`;
+- chequeo de archivos sensibles trackeados;
+- smoke test del stack completo;
+- validación de métricas, targets y reglas de Prometheus.
+
+En `main`, el pipeline publica la imagen de la API en GitHub Container Registry (GHCR) con tags:
+
+- `latest`;
+- commit SHA.
 
 ---
 
-## Cómo está organizado el repo
+## Deploy a EC2 sandbox
 
-Cada integrante trabajó en su área. Las features se hicieron en branches separadas y se mergean a `develop` primero. El CI corre automáticamente en cualquier branch `feature/**` y en `develop`.
+La estrategia de deploy está documentada en:
 
-El orden correcto para mergear los PRs es:
-1. `feature/prometheus-instrumentation` → agrega `/metrics` a la API
-2. `feature/docker-compose-monitoring` → Dockerfile de Prometheus + docker-compose base
-3. `feature/grafana-dashboards` → dashboard de Grafana
-4. `feature/alerting` → Alertmanager con reglas y notificaciones
-5. `feature/ci-enhancements` → smoke test del stack completo + push a GHCR
+- [docs/deployment-strategy.md](docs/deployment-strategy.md)
+- [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md)
+- [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md)
 
-Cada servicio de monitoreo tiene su propio `Dockerfile` que baja la imagen oficial y le copia la config adentro (en vez de montarla como volumen).
+El flujo recomendado de release usa la imagen publicada en GHCR y `docker-compose.deploy.yml`:
+
+```bash
+IMAGE_TAG=<commit_sha> ./scripts/deploy.sh
+```
+
+Para rollback:
+
+```bash
+./scripts/rollback.sh <commit_sha_anterior>
+```
+
+También existe `scripts/initial_setup.sh`, que queda como script de bootstrap inicial de EC2. No es el flujo principal de release.
+
+---
+
+## Smoke test del sandbox
+
+Desde una máquina local:
+
+```bash
+bash scripts/sandbox-smoke.sh <EC2_PUBLIC_IP>
+```
+
+También acepta URL completa:
+
+```bash
+bash scripts/sandbox-smoke.sh http://<EC2_PUBLIC_IP>
+```
+
+El script valida API, endpoints protegidos, métricas, Prometheus, reglas de alerta, Alertmanager y Grafana.
+
+Además existe un workflow manual:
+
+```text
+GitHub Actions → AWS Smoke Test → Run workflow
+```
+
+Recibe `base_url`, por ejemplo:
+
+```text
+http://52.15.50.130
+```
+
+---
+
+## Decisiones de arquitectura
+
+Las decisiones principales están documentadas como ADRs en `docs/adr/`:
+
+- Docker Compose para el stack local.
+- GitHub Actions para CI.
+- GHCR para publicación de imágenes.
+- Prometheus, Grafana, Alertmanager y cAdvisor para monitoreo.
+- Trivy para escaneo de vulnerabilidades de imágenes Docker.
+
+---
+
+## Alcance y limitaciones de Fase 1
+
+Implementado en esta fase:
+
+- API REST mock.
+- Autenticación básica por API Key.
+- Swagger/OpenAPI online.
+- Dockerización.
+- CI con tests, linting, build, scan y smoke tests.
+- Imagen Docker publicable en GHCR.
+- Sandbox AWS EC2.
+- Monitoreo con Prometheus/Grafana/Alertmanager/cAdvisor.
+- Runbooks de operación.
+- Rollback por tag/SHA.
+
+Fuera de alcance para esta fase:
+
+- modelo predictivo real;
+- ingesta real de datos;
+- base de datos productiva;
+- separación completa dev/staging/prod;
+- canary, blue-green o rolling deployment real;
+- Kubernetes;
+- performance testing formal con Locust;
+- envío real de alertas si no se configura webhook real;
+- logs centralizados y tracing distribuido.
+
+Estas decisiones se tomaron porque la Fase 1 busca validar arquitectura base, integración, observabilidad y operación mínima de un mock técnico, evitando sobrediseñar infraestructura antes de tener usuarios productivos reales.
+
+---
+
+## Flujo de trabajo del equipo
+
+El repositorio usa GitFlow simplificado:
+
+```text
+feature/* -> develop -> main
+```
+
+Reglas principales:
+
+- no commitear directo a `main`;
+- trabajar en ramas `feature/*`;
+- integrar por Pull Request;
+- mantener CI en verde;
+- actualizar documentación cuando cambia el uso o la operación del sistema;
+- no commitear `.env`, `.pem`, tokens, claves privadas ni credenciales.
+
+Ver [CONTRIBUTING.md](CONTRIBUTING.md) para el detalle del flujo.
