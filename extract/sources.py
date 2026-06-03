@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 from hashlib import sha256
+from io import StringIO
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -18,19 +20,18 @@ class DownloadedSource:
 
 
 def _parse_csv(text: str) -> tuple[list[str], list[dict[str, str]]]:
-    lines = [line for line in text.splitlines() if line.strip()]
-    if not lines:
+    buffer = StringIO(text)
+    reader = csv.DictReader(buffer)
+    if reader.fieldnames is None:
         raise ValueError("CSV source is empty")
 
-    headers = [header.strip() for header in lines[0].split(",")]
+    headers = [header.strip() for header in reader.fieldnames if header]
     if not headers:
         raise ValueError("CSV source does not contain headers")
 
     rows: list[dict[str, str]] = []
-    for line in lines[1:]:
-        values = [value.strip() for value in line.split(",")]
-        row = {headers[index]: values[index] if index < len(values) else "" for index in range(len(headers))}
-        rows.append(row)
+    for row in reader:
+        rows.append({header: (row.get(header) or "").strip() for header in headers})
 
     return headers, rows
 
