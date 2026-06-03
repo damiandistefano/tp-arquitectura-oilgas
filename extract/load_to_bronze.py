@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from .config import get_source_configs
 from .db import build_insert_sql
+from .postgres import execute_statements
 from .sources import download_source
 
 
@@ -104,10 +105,17 @@ def build_sql_statements(payload: dict) -> list[str]:
     return [statement for statement in statements if statement]
 
 
+def persist_ingestion(download_fn=download_source):
+    payload = build_ingestion_payload(download_fn=download_fn)
+    statements = build_sql_statements(payload)
+    execute_statements(statements)
+    return payload
+
+
 def run_ingestion(download_fn=download_source):
-    return build_ingestion_payload(download_fn=download_fn)
+    return persist_ingestion(download_fn=download_fn)
 
 
 if __name__ == "__main__":
-    result = run_ingestion()
+    result = persist_ingestion()
     print(json.dumps(result, ensure_ascii=True, indent=2))
