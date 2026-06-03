@@ -38,7 +38,10 @@ def test_build_metadata_records():
     assert source_file["target_table"] == "bronze.raw_demo"
 
 
-def test_run_ingestion_uses_download_fn():
+def test_run_ingestion_uses_download_fn(monkeypatch):
+    monkeypatch.setenv("PRODUCCION_SOURCE_URL", "https://example.com/produccion.csv")
+    monkeypatch.setenv("POZOS_SOURCE_URL", "https://example.com/pozos.csv")
+
     class DummySource:
         def __init__(self, name, url):
             self.name = name
