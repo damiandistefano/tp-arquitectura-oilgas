@@ -47,6 +47,30 @@ Para conexión local desde la máquina host:
 - user: dwh
 - password: dwh
 
+## Dashboard en Metabase
+
+Metabase queda disponible en:
+
+- Local: http://localhost:3001
+- Usuario demo sugerido: admin@demo.com
+- Base conectada: Oil & Gas Warehouse
+- Motor: PostgreSQL
+- Host: postgres
+- Puerto: 5432
+- Base: warehouse
+- Usuario: dwh
+
+El dashboard creado para BI se llama `Oil & Gas BI Dashboard`.
+
+Tarjetas mínimas:
+
+1. Producción mensual, usando `semantic.vw_produccion_mensual`.
+2. Producción por operadora, usando `semantic.vw_produccion_por_operadora`.
+3. Producción por área, usando `semantic.vw_produccion_por_area`.
+4. Frescura de datos, usando `semantic.vw_frescura_datos`.
+
+Las tarjetas se construyen sobre vistas del schema `semantic`, no sobre tablas Bronze, para evitar exponer datos crudos al usuario de negocio.
+
 ## Consultas de validación
 
 Producción mensual:
