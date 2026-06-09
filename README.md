@@ -1,5 +1,33 @@
 # tp-arquitectura-oilgas
 
+---
+
+## URLs oficiales de entrega
+
+> **Sandbox académico.** Reemplazar `<ip-o-dominio>` por la IP pública del EC2 el día de la entrega.
+> Si alguna URL no queda públicamente accesible, ver las instrucciones en la sección [Deploy a EC2 sandbox](#deploy-a-ec2-sandbox).
+
+### Fase 1 — ya implementadas
+
+| Servicio | URL | Credenciales |
+|---|---|---|
+| **API** | `http://<ip-o-dominio>:8000` | — |
+| **Swagger / OpenAPI UI** | `http://<ip-o-dominio>:8000/docs` | Header `X-API-Key: abcdef12345` |
+| **OpenAPI spec (JSON)** | `http://<ip-o-dominio>:8000/openapi.json` | — |
+| **Grafana** (dashboard técnico) | `http://<ip-o-dominio>:3000` | `admin` / `admin` |
+| **Prometheus** | `http://<ip-o-dominio>:9090` | — |
+| **Alertmanager** | `http://<ip-o-dominio>:9093` | — |
+
+### Fase 2 — plataforma de datos (se habilitan al integrarse)
+
+| Servicio | URL | Estado |
+|---|---|---|
+| **Metabase** (BI) | `http://<ip-o-dominio>:3001` | En construcción |
+| **Dagster** (orquestador) | `http://<ip-o-dominio>:3002` | En construcción |
+| **DataHub** (gobierno de datos) | `http://<ip-o-dominio>:9002` | En construcción |
+
+---
+
 API REST mock para consulta de pronósticos de producción de pozos de petróleo/gas, con contenedores Docker, CI/CD, monitoreo técnico y despliegue en sandbox.
 
 El objetivo de esta Fase 1 es validar una base técnica de desarrollo ágil: API mock, contrato OpenAPI, Docker, pipeline de CI, artefacto Docker publicable, observabilidad y operación básica del sandbox.

@@ -29,15 +29,37 @@ Para despliegues reproducibles se recomienda usar el commit SHA, no `latest`.
 
 ---
 
+## OpenAPI / Swagger accesible públicamente
+
+La API expone por defecto (sin configuración adicional):
+
+- `/docs` — Swagger UI interactivo.
+- `/openapi.json` — especificación OpenAPI en JSON.
+
+Estos endpoints están activos en cualquier ambiente donde corra la API.
+En el sandbox EC2 son accesibles como:
+
+```text
+http://<EC2_PUBLIC_IP>:8000/docs
+http://<EC2_PUBLIC_IP>:8000/openapi.json
+```
+
+No requieren autenticación. Los endpoints funcionales sí requieren `X-API-Key: abcdef12345`.
+
+---
+
 ## Compose de deploy basado en GHCR
 
-Para el despliegue reproducible de la API se utiliza `docker-compose.deploy.yml`.
+Para el despliegue reproducible se utiliza `docker-compose.deploy.yml`.
 
-A diferencia de `docker-compose.yml`, que levanta el stack completo y puede construir imágenes localmente, `docker-compose.deploy.yml` ejecuta la API desde una imagen ya publicada en GHCR.
+A diferencia de `docker-compose.yml`, que levanta el stack completo y construye imágenes localmente,
+`docker-compose.deploy.yml` tira la imagen de la API desde GHCR y construye localmente Prometheus,
+Grafana y Alertmanager (cuyos builds son ligeros y están versionados en el repo).
 
-Esto evita buildear manualmente dentro de la EC2 y permite desplegar un artefacto previamente validado por CI.
+Esto evita buildear la API manualmente dentro de la EC2, pero mantiene el monitoreo en el mismo
+compose para que el dashboard esté accesible en el sandbox.
 
-Formato de imagen:
+Formato de imagen de la API:
 
 ```text
 ghcr.io/damiandistefano/tp-arquitectura-oilgas/oilgas-api:<tag>
@@ -105,10 +127,17 @@ Para validar API localmente en EC2:
 curl -f http://localhost:8000/openapi.json
 ```
 
+Para validar Grafana localmente en EC2:
+
+```bash
+curl -f http://localhost:3000/api/health
+```
+
 Para validar desde afuera:
 
 ```bash
 curl -f http://<EC2_PUBLIC_IP>:8000/openapi.json
+curl -f http://<EC2_PUBLIC_IP>:3000/api/health
 ```
 
 Para validar endpoint protegido:
@@ -187,4 +216,4 @@ Para Fase 1 se prioriza una estrategia simple, trazable y reproducible:
 - rollback por tag/SHA;
 - Prometheus/Grafana/Alertmanager/cAdvisor para observabilidad.
 
-Esta decisión aplica KISS/YAGNI: se implementa lo necesario para validar arquitectura, operación y observabilidad sin sobrediseñar una infraestructura productiva antes de necesitarla.
+La decisión prioriza reproducibilidad y trazabilidad sobre automatización completa. El equipo prefirió mantener el deploy controlado por scripts versionados antes de exponer credenciales SSH en GitHub Actions, que es un riesgo real para un sandbox compartido.
