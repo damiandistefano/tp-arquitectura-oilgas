@@ -89,12 +89,15 @@ Trade-offs:
 - puede generar falsos positivos;
 - no bloquea releases en Fase 1.
 
-## Evolución futura
+## Qué queda fuera
 
-En una fase productiva se recomienda:
+En esta fase el escaneo es informativo (`exit-code: 0`). No reemplaza:
 
-- bloquear el pipeline ante vulnerabilidades críticas explotables;
-- definir excepciones documentadas;
-- fijar una política de actualización de imágenes base;
-- generar SBOM;
-- complementar con análisis de secretos, dependencias y configuración IaC.
+- una auditoría de seguridad formal;
+- análisis de secretos en el repo (para eso existe el chequeo de archivos sensibles en CI);
+- análisis de dependencias Python más allá de lo que Trivy cubre en la imagen;
+- revisión de configuración IaC.
+
+Si el proyecto avanzara a un ambiente con usuarios reales, el primer paso sería cambiar
+`exit-code` a `1` para bloquear el pipeline ante vulnerabilidades críticas, y definir
+excepciones documentadas para falsos positivos conocidos.

@@ -8,8 +8,7 @@ Este runbook sirve para validar que el sandbox de Fase 1 sigue operativo y que l
 
 ## 1. Pre-requisitos
 
-- API desplegada en EC2.
-- Para el stack completo de monitoreo: `docker compose up -d` con `docker-compose.yml`.
+- Stack completo desplegado en EC2 con `scripts/deploy.sh` (levanta API + Prometheus + Grafana + Alertmanager + cAdvisor).
 - Security Group con inbound abierto desde la IP del equipo en:
   - `22` SSH;
   - `8000` API;
@@ -192,7 +191,7 @@ Completar antes de entregar:
 | Screenshot de Prometheus targets | [ ] | `oilgas-api` en UP. |
 | Screenshot de reglas de alerta | [ ] | Mostrar reglas cargadas. |
 | Screenshot de Alertmanager | [ ] | Estado limpio o alerta de prueba. |
-| URLs activas el día de entrega | [ ] | Completar tabla de servicios. |
+| URLs activas el día de entrega | [ ] | Ver sección "URLs oficiales de entrega" en README.md — reemplazar `<ip-o-dominio>` por la IP/dominio del EC2. |
 
 ---
 

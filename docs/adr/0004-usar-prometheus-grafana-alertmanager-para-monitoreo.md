@@ -6,60 +6,70 @@ Aceptado
 
 ## Contexto
 
-La Fase 1 requiere observar el comportamiento técnico de la API mock y validar requerimientos no funcionales relacionados con disponibilidad, latencia y tasa de errores.
+La Fase 1 requiere observar el comportamiento técnico de la API mock: disponibilidad, latencia,
+tasa de errores y uso de recursos de contenedores. También pide alertas ante caídas o degradación.
 
-La consigna pide monitorear:
+El stack tiene que levantar localmente junto con la API (un solo `docker compose up`) y ser
+reproducible sin depender de cuentas SaaS ni infraestructura externa.
 
-- disponibilidad de la API;
-- latencia;
-- tasa de errores;
-- frecuencia de consultas;
-- uso de recursos;
-- alertas ante fallas o degradación.
+## Alternativas consideradas
 
-Se consideraron tres caminos:
+### Prometheus + Grafana + Alertmanager + cAdvisor (opción elegida)
 
-- stack open-source auto-hosteado: Prometheus + Grafana + Alertmanager;
-- SaaS como Datadog o New Relic;
-- stack orientado a logs como ELK o Loki.
+Stack open-source estándar en sistemas containerizados. Prometheus scrapea métricas en formato
+`/metrics`, Grafana las visualiza, Alertmanager las enruta a Slack y cAdvisor expone métricas de
+los propios contenedores.
+
+Por qué nos convenía:
+- `prometheus-fastapi-instrumentator` instrumenta la API con un `@app.on_event("startup")` y
+  expone `/metrics` sin tocar la lógica de negocio;
+- todos los componentes corren en contenedores, encajan directo en `docker-compose.yml`;
+- no hay límites de retención, costo ni dependencia de cuenta SaaS;
+- el equipo conocía Prometheus/Grafana del práctico.
+
+Limitaciones que aceptamos:
+- la retención de métricas queda en el volumen local de Prometheus; al bajar el stack, el historial
+  se pierde si no se persiste el volumen;
+- no cubre logs centralizados ni tracing distribuido;
+- Alertmanager necesita un webhook Slack real para que las alertas lleguen (con dummy solo se ven
+  en la UI).
+
+### Datadog / New Relic (SaaS)
+
+Plataformas con APM completo, logs, trazas y dashboards listos en minutos.
+
+Por qué no las elegimos: requieren una cuenta, configurar agentes y exponer datos del sistema a
+una plataforma externa. Para un sandbox académico eso agrega fricción sin aportar aprendizaje
+relevante. El costo en el tier gratuito también tiene límites que podían ser un problema en
+un entorno compartido.
+
+### ELK (Elasticsearch + Logstash + Kibana) o Grafana Loki
+
+Stacks orientados a logs. Kibana puede hacer algunas métricas, pero su punto fuerte son logs
+estructurados y full-text search.
+
+Por qué no los elegimos: la consigna pide métricas de request rate / latencia / error rate, que
+se ajustan mejor al modelo pull de Prometheus que al modelo push de logs. ELK además es pesado
+en memoria para un sandbox EC2 pequeño. Loki es más liviano, pero agrega complejidad sin que la
+consigna lo pidiera.
 
 ## Decisión
 
-Se usará:
+Se usa Prometheus + Grafana + Alertmanager + cAdvisor. Todo corre en `docker-compose.yml` junto
+con la API. El dashboard provisiona automáticamente desde `grafana/dashboards/oilgas.json`.
 
-- **Prometheus** para recolectar métricas y evaluar reglas de alerta;
-- **Grafana** para visualizar métricas en un dashboard técnico;
-- **Alertmanager** para recibir y rutear alertas;
-- **cAdvisor** para exponer métricas de contenedores.
-
-Todo corre en el mismo `docker-compose.yml` junto con la API.
+Las alertas configuradas son: `APIDown`, `HighErrorRate`, `HighLatency` y `APIRecovered`.
 
 ## Consecuencias
 
-Esta decisión permite cubrir las métricas principales de operación:
+El equipo puede ver estado de la API, latencia P95, tasa de errores y recursos de contenedores
+desde `localhost:3000` sin configuración manual.
 
-- Rate: cantidad de requests;
-- Errors: tasa de errores 4xx/5xx;
-- Duration: latencia;
-- disponibilidad mediante `up`;
-- recursos de contenedores mediante cAdvisor.
+Trade-offs que quedan:
+- si el stack baja y no se persiste el volumen de Prometheus, el historial de métricas se pierde;
+- no hay logs centralizados: para debuggear hay que usar `docker compose logs`;
+- Alertmanager enruta solo a Slack en esta fase; agregar email requeriría configurar SMTP;
+- autenticación de Grafana es básica (`admin/admin`); no es adecuado para acceso público real.
 
-Beneficios:
-
-- herramientas open-source;
-- reproducibles localmente;
-- integradas con Docker Compose;
-- sin costo de SaaS;
-- estándar común en sistemas containerizados.
-
-Trade-offs:
-
-- no cubre logs centralizados;
-- no cubre tracing distribuido;
-- no cubre APM completo;
-- la retención de métricas queda limitada al volumen local de Prometheus;
-- Alertmanager necesita un `.env` con webhook real si se quiere enviar alertas a Slack.
-
-En sandbox se puede usar un webhook dummy para validar que Alertmanager levante y que las alertas se vean en la UI. El envío real queda condicionado a configurar credenciales reales fuera del repositorio.
-
-Queda fuera de Fase 1: logs estructurados centralizados, tracing, autenticación/SSO en Grafana, alta disponibilidad de Prometheus y backups del historial de métricas.
+Queda fuera: logs estructurados, tracing distribuido, APM completo, SSO en Grafana, alta
+disponibilidad de Prometheus y retención de métricas a largo plazo.
