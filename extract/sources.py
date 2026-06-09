@@ -9,6 +9,11 @@ from io import StringIO
 from pathlib import Path
 from urllib.request import urlopen
 
+from .logging_config import get_logger
+from .retry import retry_with_backoff
+
+logger = get_logger(__name__)
+
 
 @dataclass(frozen=True)
 class DownloadedSource:
@@ -36,13 +41,17 @@ def _parse_csv(text: str) -> tuple[list[str], list[dict[str, str]]]:
     return headers, rows
 
 
+@retry_with_backoff()
 def download_source(name: str, url: str) -> DownloadedSource:
+    logger.info(f"Downloading source: {name} from {url}")
     raw_bytes = urlopen(url, timeout=60).read()
     if not raw_bytes:
         raise ValueError(f"Empty payload for source: {name}")
 
     file_hash = sha256(raw_bytes).hexdigest()
+    logger.info(f"Source {name} downloaded successfully. Hash: {file_hash}")
     headers, rows = _parse_csv(raw_bytes.decode("utf-8-sig"))
+    logger.info(f"Source {name} parsed: {len(headers)} columns, {len(rows)} rows")
     return DownloadedSource(name=name, url=url, file_hash=file_hash, headers=headers, rows=rows)
 
 

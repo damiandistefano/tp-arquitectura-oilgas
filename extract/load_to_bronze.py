@@ -8,8 +8,11 @@ from uuid import uuid4
 
 from .config import get_source_configs
 from .db import build_insert_sql
-from .postgres import execute_statements
+from .logging_config import get_logger
+from .postgres import execute_statements, has_source_been_loaded
 from .sources import download_source
+
+logger = get_logger(__name__)
 
 
 def _row_to_json(row: dict[str, str]) -> str:
@@ -63,6 +66,7 @@ def build_source_file_record(run_id: str, source_name: str, source_url: str, sou
 def build_ingestion_payload(download_fn=download_source):
     run_id = str(uuid4())
     pipeline_name = "bronze_ingestion"
+    logger.info(f"Starting ingestion run: {run_id}")
     sources = [download_fn(cfg.name, cfg.url) for cfg in get_source_configs()]
 
     bronze_payload = {
@@ -72,6 +76,9 @@ def build_ingestion_payload(download_fn=download_source):
     }
 
     for source in sources:
+        logger.info(
+            f"Building payload for source: {source.name} ({len(source.rows)} rows)"
+        )
         bronze_payload["sources"].append(
             {
                 "source_name": source.name,
@@ -89,6 +96,7 @@ def build_ingestion_payload(download_fn=download_source):
             }
         )
 
+    logger.info(f"Payload built for run {run_id} with {len(sources)} source(s)")
     return bronze_payload
 
 
@@ -107,8 +115,41 @@ def build_sql_statements(payload: dict) -> list[str]:
 
 def persist_ingestion(download_fn=download_source):
     payload = build_ingestion_payload(download_fn=download_fn)
-    statements = build_sql_statements(payload)
+
+    # Deduplication: skip sources that have already been loaded
+    sources_to_load = []
+    skipped_sources = []
+
+    for source in payload["sources"]:
+        if has_source_been_loaded(source["source_name"], source["source_file_hash"]):
+            logger.info(
+                f"Skipping source {source['source_name']} - already loaded with hash "
+                f"{source['source_file_hash']}"
+            )
+            skipped_sources.append(source["source_name"])
+        else:
+            sources_to_load.append(source)
+
+    if not sources_to_load:
+        logger.info("All sources already loaded, nothing to do")
+        return payload
+
+    # Build statements only for sources to load
+    payload_to_load = {
+        "run_id": payload["run_id"],
+        "pipeline_run": payload["pipeline_run"],
+        "sources": sources_to_load,
+    }
+
+    if skipped_sources:
+        logger.info(
+            f"Loading {len(sources_to_load)}/{len(payload['sources'])} sources. "
+            f"Skipped: {', '.join(skipped_sources)}"
+        )
+
+    statements = build_sql_statements(payload_to_load)
     execute_statements(statements)
+    logger.info(f"Ingestion run {payload['run_id']} completed successfully")
     return payload
 
 
