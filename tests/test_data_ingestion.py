@@ -6,6 +6,7 @@ from extract.load_to_bronze import (
     build_pipeline_run,
     build_source_file_record,
     build_sql_statements,
+    persist_ingestion,
 )
 from extract.sources import load_csv_from_path
 
@@ -102,3 +103,31 @@ def test_build_sql_statements_includes_metadata_and_bronze():
     assert any("metadata.pipeline_runs" in statement for statement in statements)
     assert any("metadata.source_files" in statement for statement in statements)
     assert any("bronze.raw_demo" in statement for statement in statements)
+
+
+def test_persist_ingestion_executes_statements(monkeypatch):
+    monkeypatch.setenv("PRODUCCION_SOURCE_URL", "https://example.com/produccion.csv")
+    monkeypatch.setenv("POZOS_SOURCE_URL", "https://example.com/pozos.csv")
+
+    class DummySource:
+        def __init__(self, name, url):
+            self.name = name
+            self.url = url
+            self.file_hash = f"hash-{name}"
+            self.rows = [{"a": "1"}]
+
+    def fake_download(name, url):
+        return DummySource(name, url)
+
+    executed = []
+
+    def fake_execute(statements):
+        executed.extend(statements)
+
+    monkeypatch.setattr("extract.load_to_bronze.execute_statements", fake_execute)
+
+    payload = persist_ingestion(download_fn=fake_download)
+
+    assert payload["pipeline_run"]["status"] == "SUCCESS"
+    assert executed
+    assert any("INSERT INTO metadata.pipeline_runs" in statement for statement in executed)
