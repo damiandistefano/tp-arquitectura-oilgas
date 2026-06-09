@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: vw_produccion_mensual
+    description: "Vista semántica con métricas mensuales de producción."
+    columns:
+      - name: fecha_mes
+        description: "Mes de producción."
+        tests:
+          - not_null
+          - unique
+      - name: registros_produccion
+        description: "Cantidad de registros de producción del mes."
+        tests:
+          - not_null
+
+  - name: vw_produccion_por_operadora
+    description: "Vista semántica con métricas mensuales por operadora."
+    columns:
+      - name: fecha_mes
+        description: "Mes de producción."
+        tests:
+          - not_null
+      - name: operadora_id
+        description: "Clave surrogate de la operadora."
+        tests:
+          - not_null
+      - name: registros_produccion
+        description: "Cantidad de registros de producción para la operadora y el mes."
+        tests:
+          - not_null
+
+  - name: vw_frescura_datos
+    description: "Vista semántica para revisar frescura y cobertura general de datos."
+    columns:
+      - name: ultima_ingesta
+        description: "Último timestamp de ingesta disponible en la fact table."
+        tests:
+          - not_null
+      - name: registros_totales
+        description: "Cantidad total de registros en la fact table."
+        tests:
+          - not_null

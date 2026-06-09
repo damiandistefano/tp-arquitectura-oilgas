@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: fact_produccion_pozo
+    description: "Tabla de hechos con una fila por registro de producción de pozo y período."
+    columns:
+      - name: produccion_id
+        description: "Identificador surrogate del registro de producción."
+        tests:
+          - not_null
+          - unique
+      - name: pozo_id
+        description: "Clave surrogate del pozo."
+        tests:
+          - not_null
+      - name: fecha_mes
+        description: "Mes de producción."
+        tests:
+          - not_null
+      - name: operadora_id
+        description: "Clave surrogate de la operadora."
+        tests:
+          - not_null
+      - name: _run_id
+        description: "Identificador de la corrida de ingesta que originó el dato."
+        tests:
+          - not_null
+      - name: _source_file_hash
+        description: "Hash del archivo fuente usado para trazabilidad."
+        tests:
+          - not_null
+
+  - name: dim_pozo
+    description: "Dimensión de pozos."
+    columns:
+      - name: pozo_id
+        description: "Clave surrogate del pozo."
+        tests:
+          - not_null
+          - unique
+      - name: idpozo
+        description: "Identificador original del pozo en la fuente."
+        tests:
+          - not_null
+
+  - name: dim_fecha
+    description: "Dimensión de tiempo a nivel mensual."
+    columns:
+      - name: fecha_mes
+        description: "Primer día del mes usado como período analítico."
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_operadora
+    description: "Dimensión de operadoras."
+    columns:
+      - name: operadora_id
+        description: "Clave surrogate de la operadora."
+        tests:
+          - not_null
+          - unique
+      - name: idempresa
+        description: "Identificador original de la empresa operadora."
+        tests:
+          - not_null
+
+  - name: dim_area
+    description: "Dimensión de áreas."
+    columns:
+      - name: area_id
+        description: "Clave surrogate del área."
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_yacimiento
+    description: "Dimensión de yacimientos."
+    columns:
+      - name: yacimiento_id
+        description: "Clave surrogate del yacimiento."
+        tests:
+          - not_null
+          - unique
