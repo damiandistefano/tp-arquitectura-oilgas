@@ -105,7 +105,7 @@ def test_build_sql_statements_includes_metadata_and_bronze():
     assert any("bronze.raw_demo" in statement for statement in statements)
 
 
-def test_persist_ingestion_executes_statements(monkeypatch):
+def test_persist_ingestion_persists_sources(monkeypatch):
     monkeypatch.setenv("PRODUCCION_SOURCE_URL", "https://example.com/produccion.csv")
     monkeypatch.setenv("POZOS_SOURCE_URL", "https://example.com/pozos.csv")
 
@@ -119,15 +119,22 @@ def test_persist_ingestion_executes_statements(monkeypatch):
     def fake_download(name, url):
         return DummySource(name, url)
 
-    executed = []
+    persisted_payloads = []
 
-    def fake_execute(statements):
-        executed.extend(statements)
+    def fake_has_source_been_loaded(source_name, source_file_hash):
+        return False
 
-    monkeypatch.setattr("extract.load_to_bronze.execute_statements", fake_execute)
+    def fake_persist_payload(payload):
+        persisted_payloads.append(payload)
+
+    monkeypatch.setattr(
+        "extract.load_to_bronze.has_source_been_loaded",
+        fake_has_source_been_loaded,
+    )
+    monkeypatch.setattr("extract.load_to_bronze.persist_payload", fake_persist_payload)
 
     payload = persist_ingestion(download_fn=fake_download)
 
     assert payload["pipeline_run"]["status"] == "SUCCESS"
-    assert executed
-    assert any("INSERT INTO metadata.pipeline_runs" in statement for statement in executed)
+    assert persisted_payloads
+    assert len(persisted_payloads[0]["sources"]) == 2
