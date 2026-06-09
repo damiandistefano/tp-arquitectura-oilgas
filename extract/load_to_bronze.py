@@ -9,7 +9,7 @@ from uuid import uuid4
 from .config import get_source_configs
 from .db import build_insert_sql
 from .logging_config import get_logger
-from .postgres import execute_statements, has_source_been_loaded
+from .postgres import connect_to_postgres, has_source_been_loaded, insert_rows
 from .sources import download_source
 
 logger = get_logger(__name__)
@@ -22,6 +22,7 @@ def _row_to_json(row: dict[str, str]) -> str:
 def build_bronze_rows(source, run_id: str):
     ingested_at = datetime.now(timezone.utc).isoformat()
     bronze_rows = []
+
     for index, row in enumerate(source.rows, start=1):
         bronze_rows.append(
             {
@@ -34,10 +35,16 @@ def build_bronze_rows(source, run_id: str):
                 "_raw_row_number": index,
             }
         )
+
     return bronze_rows
 
 
-def build_pipeline_run(run_id: str, pipeline_name: str, status: str, error_message: str | None = None):
+def build_pipeline_run(
+    run_id: str,
+    pipeline_name: str,
+    status: str,
+    error_message: str | None = None,
+):
     timestamp = datetime.now(timezone.utc).isoformat()
     return {
         "run_id": run_id,
@@ -51,7 +58,14 @@ def build_pipeline_run(run_id: str, pipeline_name: str, status: str, error_messa
     }
 
 
-def build_source_file_record(run_id: str, source_name: str, source_url: str, source_file_hash: str, rows_loaded: int, target_table: str):
+def build_source_file_record(
+    run_id: str,
+    source_name: str,
+    source_url: str,
+    source_file_hash: str,
+    rows_loaded: int,
+    target_table: str,
+):
     return {
         "run_id": run_id,
         "source_name": source_name,
@@ -66,7 +80,9 @@ def build_source_file_record(run_id: str, source_name: str, source_url: str, sou
 def build_ingestion_payload(download_fn=download_source):
     run_id = str(uuid4())
     pipeline_name = "bronze_ingestion"
-    logger.info(f"Starting ingestion run: {run_id}")
+
+    logger.info("Starting ingestion run: %s", run_id)
+
     sources = [download_fn(cfg.name, cfg.url) for cfg in get_source_configs()]
 
     bronze_payload = {
@@ -77,8 +93,11 @@ def build_ingestion_payload(download_fn=download_source):
 
     for source in sources:
         logger.info(
-            f"Building payload for source: {source.name} ({len(source.rows)} rows)"
+            "Building payload for source: %s (%s rows)",
+            source.name,
+            len(source.rows),
         )
+
         bronze_payload["sources"].append(
             {
                 "source_name": source.name,
@@ -96,7 +115,7 @@ def build_ingestion_payload(download_fn=download_source):
             }
         )
 
-    logger.info(f"Payload built for run {run_id} with {len(sources)} source(s)")
+    logger.info("Payload built for run %s with %s source(s)", run_id, len(sources))
     return bronze_payload
 
 
@@ -113,18 +132,71 @@ def build_sql_statements(payload: dict) -> list[str]:
     return [statement for statement in statements if statement]
 
 
+def summarize_payload(payload: dict) -> dict:
+    """
+    Resume una corrida sin imprimir todas las filas cargadas.
+
+    Parámetros:
+        - payload: Payload completo de ingesta.
+
+    Returns:
+        Dict chico con run_id, estado y resumen por fuente.
+    """
+    return {
+        "run_id": payload["run_id"],
+        "status": payload["pipeline_run"]["status"],
+        "sources": [
+            {
+                "source_name": source["source_name"],
+                "source_file_hash": source["source_file_hash"],
+                "rows": len(source["rows"]),
+                "target_table": source["metadata"]["target_table"],
+            }
+            for source in payload["sources"]
+        ],
+    }
+
+
+def persist_payload(payload: dict) -> None:
+    """
+    Persiste una corrida completa en Postgres.
+
+    Inserta en batches para evitar queries gigantes. La metadata de archivos se
+    registra después de cargar cada tabla Bronze, así no queda una fuente marcada
+    como cargada si falla antes la carga real.
+    """
+    with connect_to_postgres() as conn:
+        insert_rows("metadata.pipeline_runs", [payload["pipeline_run"]], conn=conn)
+
+        for source in payload["sources"]:
+            target_table = source["metadata"]["target_table"]
+            source_name = source["source_name"]
+
+            logger.info("Loading source %s into %s", source_name, target_table)
+
+            insert_rows(target_table, source["rows"], conn=conn)
+            insert_rows("metadata.source_files", [source["metadata"]], conn=conn)
+
+            logger.info(
+                "Source %s loaded into %s (%s row(s))",
+                source_name,
+                target_table,
+                len(source["rows"]),
+            )
+
+
 def persist_ingestion(download_fn=download_source):
     payload = build_ingestion_payload(download_fn=download_fn)
 
-    # Deduplication: skip sources that have already been loaded
     sources_to_load = []
     skipped_sources = []
 
     for source in payload["sources"]:
         if has_source_been_loaded(source["source_name"], source["source_file_hash"]):
             logger.info(
-                f"Skipping source {source['source_name']} - already loaded with hash "
-                f"{source['source_file_hash']}"
+                "Skipping source %s - already loaded with hash %s",
+                source["source_name"],
+                source["source_file_hash"],
             )
             skipped_sources.append(source["source_name"])
         else:
@@ -134,7 +206,6 @@ def persist_ingestion(download_fn=download_source):
         logger.info("All sources already loaded, nothing to do")
         return payload
 
-    # Build statements only for sources to load
     payload_to_load = {
         "run_id": payload["run_id"],
         "pipeline_run": payload["pipeline_run"],
@@ -143,13 +214,15 @@ def persist_ingestion(download_fn=download_source):
 
     if skipped_sources:
         logger.info(
-            f"Loading {len(sources_to_load)}/{len(payload['sources'])} sources. "
-            f"Skipped: {', '.join(skipped_sources)}"
+            "Loading %s/%s sources. Skipped: %s",
+            len(sources_to_load),
+            len(payload["sources"]),
+            ", ".join(skipped_sources),
         )
 
-    statements = build_sql_statements(payload_to_load)
-    execute_statements(statements)
-    logger.info(f"Ingestion run {payload['run_id']} completed successfully")
+    persist_payload(payload_to_load)
+
+    logger.info("Ingestion run %s completed successfully", payload["run_id"])
     return payload
 
 
@@ -159,4 +232,4 @@ def run_ingestion(download_fn=download_source):
 
 if __name__ == "__main__":
     result = persist_ingestion()
-    print(json.dumps(result, ensure_ascii=True, indent=2))
+    print(json.dumps(summarize_payload(result), ensure_ascii=True, indent=2))
