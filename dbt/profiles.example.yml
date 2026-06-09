@@ -1,0 +1,12 @@
+oilgas_analytics:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: localhost
+      port: 5433
+      user: dwh
+      password: dwh
+      dbname: warehouse
+      schema: analytics
+      threads: 4
