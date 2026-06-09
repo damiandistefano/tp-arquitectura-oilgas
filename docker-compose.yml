@@ -20,6 +20,23 @@ services:
       retries: 5
       start_period: 10s
 
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "3001:3000"
+    environment:
+      MB_SITE_NAME: "Oil & Gas Analytics"
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build: .
     ports:
@@ -80,3 +97,4 @@ networks:
 volumes:
   grafana-data:
   postgres-data:
+  metabase-data:
