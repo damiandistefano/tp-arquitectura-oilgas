@@ -1,2 +1,4 @@
 -r requirements.txt
 ruff
+dbt-core==1.9.0
+dbt-postgres==1.9.0

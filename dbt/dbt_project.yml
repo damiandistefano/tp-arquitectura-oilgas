@@ -1,0 +1,23 @@
+name: oilgas_analytics
+version: "1.0.0"
+config-version: 2
+
+profile: oilgas_analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+models:
+  oilgas_analytics:
+    staging:
+      +schema: silver
+      +materialized: view
+    silver:
+      +schema: silver
+      +materialized: table
+    gold:
+      +schema: gold
+      +materialized: table
+    semantic:
+      +schema: semantic
+      +materialized: view

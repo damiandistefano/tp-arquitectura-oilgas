@@ -221,3 +221,8 @@ aws_credentials.csv
 
 # Local SSH config and keys
 .ssh/
+
+# dbt local artifacts
+dbt/logs/
+dbt/target/
+dbt/.user.yml

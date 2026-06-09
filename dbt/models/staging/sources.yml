@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: warehouse
+    schema: bronze
+    tables:
+      - name: raw_produccion_no_convencional
+        description: Datos crudos de producción no convencional cargados en Bronze.
+      - name: raw_pozos_operadoras
+        description: Datos crudos de pozos y operadoras cargados en Bronze.
