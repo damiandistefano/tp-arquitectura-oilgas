@@ -11,3 +11,54 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  prometheus:
+    build: ./prometheus
+    container_name: oilgas-prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  grafana:
+    build: ./grafana
+    container_name: oilgas-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: oilgas-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    restart: unless-stopped
+
+  alertmanager:
+    build: ./alertmanager
+    container_name: oilgas-alertmanager
+    ports:
+      - "9093:9093"
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  grafana-data:
