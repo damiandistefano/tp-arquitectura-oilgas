@@ -162,7 +162,7 @@ Ver índice completo en [docs/adr/README.md](adr/README.md).
 | `docs/runbooks/sandbox-validation.md` | ✅ Presente |
 | `docs/runbooks/bi-user.md` | ✅ Presente |
 | `docs/runbooks/dbt-analytics.md` | ✅ Presente |
-| `docs/runbooks/data-engineer.md` | ⏳ Pendiente (I3) |
+| `docs/runbooks/data-engineer.md` | ✅ Presente |
 
 ### Contratos de datos y modelo
 
@@ -214,7 +214,7 @@ Ver [README.md — sección "URLs oficiales de entrega"](../README.md#urls-ofici
 
 ### Documentación
 - [ ] ADRs 0001–0005 y 0009–0012 presentes y con "Alternativas consideradas".
-- [ ] Runbooks de operación presentes (local-stack, deploy-aws, sandbox-validation, bi-user, dbt-analytics).
+- [ ] Runbooks de operación presentes (local-stack, deploy-aws, sandbox-validation, bi-user, dbt-analytics, data-engineer).
 - [ ] `docs/delivery-checklist.md` (este archivo) actualizado con el estado real.
 - [ ] `README.md` — sección "URLs oficiales de entrega" refleja el estado real.
 
