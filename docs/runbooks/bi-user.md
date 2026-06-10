@@ -111,3 +111,45 @@ Si Metabase no está levantado, se pueden validar las mismas consultas con psql 
 ## Nota de alcance
 
 El modelo analítico y las vistas semantic ya están disponibles. La publicación visual en Metabase depende de que el servicio Metabase esté agregado y levantado en el stack Docker.
+
+## Dashboard de BI en Metabase
+
+Metabase queda disponible en:
+
+* Local: `http://localhost:3001`
+* Base conectada: `Oil & Gas Warehouse`
+* Motor: PostgreSQL
+* Host: `postgres`
+* Puerto: `5432`
+* Base: `warehouse`
+* Usuario: `dwh`
+
+El dashboard armado para usuarios de negocio se llama `Oil & Gas BI Dashboard`.
+
+Tarjetas mínimas del dashboard:
+
+1. **Producción mensual**
+   Usa `semantic.vw_produccion_mensual`.
+
+2. **Producción por operadora**
+   Usa `semantic.vw_produccion_por_operadora`.
+
+3. **Producción por área**
+   Usa `semantic.vw_produccion_por_area`.
+
+4. **Frescura de datos**
+   Usa `semantic.vw_frescura_datos`.
+
+5. **Pozos con producción mensual**
+   Usa `semantic.vw_produccion_mensual`.
+
+6. **Estado de calidad**
+   Usa `quality.data_quality_results`.
+
+Las consultas del dashboard se hacen sobre vistas del schema `semantic` y sobre la tabla `quality.data_quality_results`. No se consulta directamente Bronze, porque Bronze contiene datos crudos y está pensado como evidencia de ingesta, no como capa de consumo para negocio.
+
+Para validar que Metabase y las vistas de BI están disponibles, ejecutar:
+
+```bash
+bash scripts/metabase-smoke.sh
+```
