@@ -37,9 +37,9 @@ no queda claro qué se descartó y por qué.
 
 | # | Título | Estado | Área | Review |
 |---|---|---|---|---|
-| 0006 | *(pendiente — Integrante 1: orquestación / Dagster)* | ⏳ Falta | Orquestación | — |
-| 0007 | *(pendiente — Integrante 1: estrategia de carga / backfill)* | ⏳ Falta | Ingesta | — |
-| 0008 | *(pendiente — Integrante 1: warehouse PostgreSQL)* | ⏳ Falta | Almacenamiento | — |
+| [0006](0006-usar-dagster-para-orquestacion-de-datos.md) | Usar Dagster para orquestación del pipeline | Aceptado | Orquestación | ✅ Compara Airflow, Prefect y scripts bash |
+| [0007](0007-definir-estrategia-de-carga-y-backfill.md) | Estrategia de carga y backfill | Aceptado | Ingesta | ✅ Compara incremental, truncate-reload y full download |
+| [0008](0008-usar-postgres-como-warehouse-local.md) | Usar PostgreSQL como warehouse local | Aceptado | Almacenamiento | ✅ Compara S3/Parquet, SQLite, warehouses cloud |
 | [0009](0009-usar-arquitectura-medallion-para-procesamiento.md) | Usar arquitectura medallion para procesamiento | Aceptado | Datos | ✅ Compara Lambda, Kappa, flat staging |
 | [0010](0010-usar-modelo-estrella-en-gold.md) | Usar modelo estrella en Gold | Aceptado | Datos | ✅ Compara OBT y modelo normalizado |
 | [0011](0011-persistir-calidad-de-datos-y-bloquear-promocion.md) | Persistir calidad de datos y bloquear promoción | Aceptado | Calidad | ✅ Compara dbt tests, Great Expectations |
@@ -65,8 +65,5 @@ no queda claro qué se descartó y por qué.
 - 0012 es conciso y honesto sobre lo que no implementa (sin oversell de la semantic layer).
 
 ### Gaps pendientes
-- **0006–0008**: son responsabilidad de Integrante 1. Falta documentar las decisiones de orquestación
-  (Dagster vs Airflow vs Prefect), estrategia de carga/backfill (append-only bronze, upsert silver/gold)
-  y elección de PostgreSQL como warehouse.
 - **0013**: DataHub parqueado. Se escribe cuando se implemente el gobierno de datos.
 - **0014**: Metabase. Falta la decisión de BI (Metabase vs Grafana vs Superset).
