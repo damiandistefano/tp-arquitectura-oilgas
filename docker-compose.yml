@@ -20,6 +20,25 @@ services:
       retries: 5
       start_period: 10s
 
+  dagster:
+    build: ./dagster
+    container_name: dagster
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env
+    volumes:
+      - ./extract:/workspace/extract:ro
+      - ./dbt:/workspace/dbt:ro
+      - ./quality:/workspace/quality:ro
+      - ./dagster/dwh_pipeline:/workspace/dwh_pipeline:ro
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   metabase:
     image: metabase/metabase:latest
     container_name: metabase
