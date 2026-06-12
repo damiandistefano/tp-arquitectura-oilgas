@@ -44,7 +44,7 @@ no queda claro qué se descartó y por qué.
 | [0010](0010-usar-modelo-estrella-en-gold.md) | Usar modelo estrella en Gold | Aceptado | Datos | ✅ Compara OBT y modelo normalizado |
 | [0011](0011-persistir-calidad-de-datos-y-bloquear-promocion.md) | Persistir calidad de datos y bloquear promoción | Aceptado | Calidad | ✅ Compara dbt tests, Great Expectations |
 | [0012](0012-usar-vistas-sql-como-semantic-layer.md) | Usar vistas SQL como semantic layer | Aceptado | BI / Semantic | ✅ Compara Cube, dbt Semantic Layer |
-| 0013 | *(pendiente — Integrante 3: gobierno de datos / DataHub)* | ⏳ Parqueado | Governance | — |
+| [0013](0013-usar-datahub-para-gobierno-de-datos.md) | Usar DataHub para gobierno de datos | Aceptado | Governance | ✅ Compara OpenMetadata, Amundsen, dbt docs |
 | 0014 | *(pendiente — Integrante 2: BI / Metabase)* | ⏳ Falta | BI | — |
 
 ---
@@ -68,5 +68,6 @@ no queda claro qué se descartó y por qué.
 - **0006–0008**: son responsabilidad de Integrante 1. Falta documentar las decisiones de orquestación
   (Dagster vs Airflow vs Prefect), estrategia de carga/backfill (append-only bronze, upsert silver/gold)
   y elección de PostgreSQL como warehouse.
-- **0013**: DataHub parqueado. Se escribe cuando se implemente el gobierno de datos.
+- **0013**: DataHub. Escrito. Compara OpenMetadata, Amundsen y dbt docs; decide DataHub en EC2
+  dedicada on-demand. Deploy documentado en `docs/runbooks/datahub.md`.
 - **0014**: Metabase. Falta la decisión de BI (Metabase vs Grafana vs Superset).

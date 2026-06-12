@@ -1,0 +1,43 @@
+# Receta de ingesta de DataHub — warehouse PostgreSQL (Adenda 2)
+#
+# Ingiere la metadata (schemas, tablas, columnas, tipos) del warehouse medallion hacia DataHub.
+# Se corre desde el host de la EC2 dedicada, con el warehouse y DataHub en la misma instancia:
+#
+#   datahub ingest -c datahub/recipe.postgres.yml
+#
+# Ver procedimiento completo en docs/runbooks/datahub.md.
+#
+# Nota: las credenciales son las del warehouse sandbox (dwh/dwh), las mismas que usa todo el repo
+# (.env.example, docker-compose.yml). No son productivas.
+
+source:
+  type: postgres
+  config:
+    # El warehouse corre en el host port 5433 (docker-compose.yml mapea 5433:5432).
+    host_port: "localhost:5433"
+    database: warehouse
+    username: dwh
+    password: dwh
+
+    # Solo catalogamos las capas del modelo medallion.
+    schema_pattern:
+      allow:
+        - "bronze"
+        - "silver"
+        - "gold"
+        - "quality"
+        - "metadata"
+        - "semantic"
+
+    # Incluir las vistas de la capa semantic.
+    include_views: true
+
+    # Profiling apagado: corre queries por tabla y es pesado. No hace falta para el catálogo.
+    profiling:
+      enabled: false
+
+sink:
+  type: datahub-rest
+  config:
+    # DataHub GMS expuesto por el quickstart en el host.
+    server: "http://localhost:8080"
