@@ -3,7 +3,9 @@
 import subprocess
 import sys
 
-from dagster import asset, RetryPolicy, Backoff, get_dagster_logger
+from dagster import Backoff, RetryPolicy, asset, get_dagster_logger
+
+_WORKSPACE = "/workspace"
 
 
 @asset(
@@ -20,14 +22,10 @@ def extract_to_bronze():
     log = get_dagster_logger()
     log.info("Iniciando ingesta a Bronze")
 
-    import os
-    import sys
+    if _WORKSPACE not in sys.path:
+        sys.path.insert(0, _WORKSPACE)
 
-    workspace = "/workspace"
-    if workspace not in sys.path:
-        sys.path.insert(0, workspace)
-
-    from extract.load_to_bronze import run_ingestion
+    from extract.load_to_bronze import run_ingestion  # noqa: PLC0415
 
     result = run_ingestion()
     log.info("Ingesta completada: run_id=%s", result["run_id"])
@@ -45,9 +43,10 @@ def run_silver_transformations():
     log.info("Corriendo modelos dbt (silver + gold)")
 
     result = subprocess.run(
-        ["dbt", "build", "--project-dir", "/workspace/dbt", "--profiles-dir", "/workspace/dbt"],
+        ["dbt", "build", "--project-dir", f"{_WORKSPACE}/dbt", "--profiles-dir", f"{_WORKSPACE}/dbt"],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     log.info(result.stdout)
@@ -69,10 +68,11 @@ def run_quality_checks():
     log.info("Corriendo checks de calidad")
 
     result = subprocess.run(
-        ["python", "-m", "quality.checks"],
+        [sys.executable, "-m", "quality.checks"],
         capture_output=True,
         text=True,
-        cwd="/workspace",
+        cwd=_WORKSPACE,
+        check=False,
     )
 
     log.info(result.stdout)
