@@ -24,7 +24,7 @@
 |---|---|---|
 | **Metabase** (BI) | `http://<ip-o-dominio>:3001` | En construcción |
 | **Dagster** (orquestador) | `http://<ip-o-dominio>:3002` | En construcción |
-| **DataHub** (gobierno de datos) | `http://<ip-o-dominio>:9002` | En construcción |
+| **DataHub** (gobierno de datos) | `http://<ip-datahub>:9002` | EC2 dedicada on-demand — ver [runbook](docs/runbooks/datahub.md) |
 
 ---
 

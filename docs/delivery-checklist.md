@@ -18,7 +18,7 @@ se promete más de lo que hay.
 | Calidad de datos (`quality/`) | I2 | ✅ Listo | Persiste en `quality.data_quality_results`. Checks: schema, completeness, uniqueness, freshness, lineage. |
 | Metabase (BI) | I2 | ✅ Listo (conexión manual) | Puerto 3001. Conexión al warehouse se configura en la UI la primera vez. |
 | Orquestación (Dagster) | I1 | ⏳ Verificar con I1 | Puerto 3002. |
-| DataHub (gobierno de datos) | I3 | ⏳ Pendiente | Puerto 9002. Stack pesado (~6-8 GB RAM), se levanta local para la demo. No corre en EC2 sandbox chica. |
+| DataHub (gobierno de datos) | I3 | ✅ Validado en EC2 dedicada on-demand | Puerto 9002. Stack pesado (~8 GB RAM + 2 GB swap). Corre en EC2 dedicada `t3.large` on-demand (no en el sandbox chico). Probado end-to-end: `quickstart` + ingesta de los 6 schemas. Ver [runbook](runbooks/datahub.md). |
 
 ---
 
@@ -150,7 +150,7 @@ Ver índice completo en [docs/adr/README.md](adr/README.md).
 | 0001–0005 (Fase 1) | ✅ Presentes, revisados |
 | 0006–0008 (I1: orquestación, backfill, warehouse) | ⏳ Pendientes (I1) |
 | 0009–0012 (I2: medallion, gold, calidad, semantic) | ✅ Presentes |
-| 0013 (I3: DataHub) | ⏳ Pendiente (I3, parqueado) |
+| 0013 (I3: DataHub) | ✅ Presente |
 | 0014 (I2: Metabase) | ⏳ Pendiente (I2) |
 
 ### Runbooks
@@ -163,6 +163,7 @@ Ver índice completo en [docs/adr/README.md](adr/README.md).
 | `docs/runbooks/bi-user.md` | ✅ Presente |
 | `docs/runbooks/dbt-analytics.md` | ✅ Presente |
 | `docs/runbooks/data-engineer.md` | ✅ Presente |
+| `docs/runbooks/datahub.md` | ✅ Presente |
 
 ### Contratos de datos y modelo
 
@@ -212,9 +213,15 @@ Ver [README.md — sección "URLs oficiales de entrega"](../README.md#urls-ofici
 - [ ] `bash scripts/run-quality-checks.sh` sale con exit 0. Resultados visibles en `quality.data_quality_results`.
 - [ ] Metabase (`localhost:3001`) conectado al warehouse. Dashboard visible.
 
+### Gobierno de datos (DataHub) — instancia dedicada on-demand
+- [ ] EC2 `t3.large` levantada con swap + `vm.max_map_count` (ver [runbook](runbooks/datahub.md)).
+- [ ] `datahub docker quickstart` arriba. UI accesible en `http://<ip-datahub>:9002`.
+- [ ] `datahub ingest -c datahub/recipe.postgres.yml` corrió sin errores. Los 6 schemas aparecen en el catálogo.
+- [ ] Instancia apagada (`stop`) después de la demo para no gastar créditos.
+
 ### Documentación
 - [ ] ADRs 0001–0005 y 0009–0012 presentes y con "Alternativas consideradas".
-- [ ] Runbooks de operación presentes (local-stack, deploy-aws, sandbox-validation, bi-user, dbt-analytics, data-engineer).
+- [ ] Runbooks de operación presentes (local-stack, deploy-aws, sandbox-validation, bi-user, dbt-analytics, data-engineer, datahub).
 - [ ] `docs/delivery-checklist.md` (este archivo) actualizado con el estado real.
 - [ ] `README.md` — sección "URLs oficiales de entrega" refleja el estado real.
 
