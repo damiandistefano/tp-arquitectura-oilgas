@@ -1,155 +1,289 @@
-# Runbook BI user
+# Runbook - Usuario BI / Data Analyst
 
-Este runbook explica cómo consultar las métricas analíticas disponibles para usuarios de negocio.
+## Proposito
 
-## Objetivo
+Consultar metricas de produccion de Oil & Gas en Metabase sin tener que conocer las tablas crudas ni escribir transformaciones desde cero.
 
-Permitir que un usuario no técnico revise producción mensual, producción por operadora, producción por área/yacimiento, cantidad de pozos y frescura de datos.
+Se usa cuando:
 
-## Fuente de datos para BI
+- hay que revisar produccion mensual;
+- se quiere comparar operadoras, areas o yacimientos;
+- se prepara evidencia de entrega;
+- se valida frescura y estado de calidad de los datos.
 
-Las consultas de BI deben usar las vistas de la capa semantic:
+## Rol responsable
 
-- semantic.vw_produccion_mensual
-- semantic.vw_produccion_por_operadora
-- semantic.vw_produccion_por_area
-- semantic.vw_frescura_datos
+Usuario BI / Data Analyst.
 
-Estas vistas ya agregan métricas y evitan consultar directamente las tablas Gold.
+Necesita:
 
-## Dashboard mínimo sugerido
+- acceso a Metabase;
+- conexion al warehouse PostgreSQL;
+- dashboard `Oil & Gas BI Dashboard`;
+- datos ya procesados en `semantic.*` y `quality.data_quality_results`.
 
-El dashboard debería incluir:
+---
 
-- producción mensual total
-- producción por operadora
-- producción por área y yacimiento
-- cantidad de pozos con producción
-- última ingesta disponible
-- último período disponible
-- estado de calidad de la última corrida
+## 1. Entrar a Metabase
 
-## Conexión desde Metabase
+URL local:
 
-Cuando Metabase esté disponible en el stack, se debe conectar a Postgres con estos datos:
+```text
+http://localhost:3001
+```
 
-- host: postgres
-- port: 5432
-- database: warehouse
-- user: dwh
-- password: dwh
+Base esperada:
 
-Para conexión local desde la máquina host:
+```text
+Oil & Gas Warehouse
+```
 
-- host: localhost
-- port: 5433
-- database: warehouse
-- user: dwh
-- password: dwh
+Credenciales de acceso local:
 
-## Dashboard en Metabase
+| Campo | Valor |
+|---|---|
+| Email | `martinbianchi@udesa.edu.ar` |
+| Password | `Admin1234!` |
 
-Metabase queda disponible en:
+Conexion a PostgreSQL desde Metabase:
 
-- Local: http://localhost:3001
-- Usuario demo sugerido: admin@demo.com
-- Base conectada: Oil & Gas Warehouse
-- Motor: PostgreSQL
-- Host: postgres
-- Puerto: 5432
-- Base: warehouse
-- Usuario: dwh
+| Campo | Valor |
+|---|---|
+| Host | `postgres` |
+| Puerto | `5432` |
+| Database | `warehouse` |
+| User | `dwh` |
+| Password | `dwh` |
 
-El dashboard creado para BI se llama `Oil & Gas BI Dashboard`.
+Desde la maquina host, para validar con `psql`, usar `localhost:5433`.
 
-Tarjetas mínimas:
+---
 
-1. Producción mensual, usando `semantic.vw_produccion_mensual`.
-2. Producción por operadora, usando `semantic.vw_produccion_por_operadora`.
-3. Producción por área, usando `semantic.vw_produccion_por_area`.
-4. Frescura de datos, usando `semantic.vw_frescura_datos`.
+## 2. Regla de consumo
 
-Las tarjetas se construyen sobre vistas del schema `semantic`, no sobre tablas Bronze, para evitar exponer datos crudos al usuario de negocio.
+El dashboard debe consumir:
 
-## Consultas de validación
+- vistas `semantic.*`;
+- tabla `quality.data_quality_results` para estado de calidad.
 
-Producción mensual:
+No consultar Bronze desde BI. Bronze guarda evidencia de ingesta, no datos preparados para usuarios de negocio.
 
-    select * from semantic.vw_produccion_mensual limit 20;
+---
 
-Producción por operadora:
+## 3. Dashboard esperado
 
-    select * from semantic.vw_produccion_por_operadora limit 20;
+Nombre:
 
-Producción por área/yacimiento:
+```text
+Oil & Gas BI Dashboard
+```
 
-    select * from semantic.vw_produccion_por_area limit 20;
+Tarjetas minimas:
 
-Frescura de datos:
+1. Produccion mensual.
+2. Produccion por operadora.
+3. Produccion por area/yacimiento.
+4. Pozos con produccion mensual.
+5. Frescura de datos.
+6. Estado de calidad.
 
-    select * from semantic.vw_frescura_datos;
+---
 
-Estado de calidad:
+## 4. Consultas SQL para reconstruir el dashboard
 
-    select check_name, dimension, status, severity, rows_failed from quality.data_quality_results order by executed_at desc limit 20;
+### 1. Produccion mensual
 
-## Si algo falla
+Usar como grafico de linea o barras por `periodo`.
 
-Si una vista semantic no existe, primero correr:
+```sql
+select
+  periodo,
+  prod_pet_total,
+  prod_gas_total,
+  prod_agua_total,
+  registros_produccion,
+  pozos_con_produccion
+from semantic.vw_produccion_mensual
+order by fecha_mes;
+```
 
-    cd dbt
-    dbt run
-    dbt test
-    cd ..
+### 2. Produccion por operadora
 
-Si no hay resultados de calidad, correr:
+Usar barras o tabla ordenada por produccion de petroleo/gas.
 
-    bash scripts/run-quality-checks.sh
+```sql
+select
+  empresa,
+  sum(prod_pet_total) as prod_pet_total,
+  sum(prod_gas_total) as prod_gas_total,
+  sum(prod_agua_total) as prod_agua_total,
+  sum(registros_produccion) as registros_produccion,
+  count(distinct periodo) as periodos_con_datos
+from semantic.vw_produccion_por_operadora
+group by empresa
+order by prod_pet_total desc
+limit 20;
+```
 
-Si Metabase no está levantado, se pueden validar las mismas consultas con psql contra Postgres.
+### 3. Produccion por area y yacimiento
 
-## Nota de alcance
+Usar tabla o barras apiladas si el volumen visual queda claro.
 
-El modelo analítico y las vistas semantic ya están disponibles. La publicación visual en Metabase depende de que el servicio Metabase esté agregado y levantado en el stack Docker.
+```sql
+select
+  areapermisoconcesion,
+  areayacimiento,
+  provincia,
+  cuenca,
+  sum(prod_pet_total) as prod_pet_total,
+  sum(prod_gas_total) as prod_gas_total,
+  sum(prod_agua_total) as prod_agua_total,
+  sum(pozos_con_produccion) as pozos_con_produccion
+from semantic.vw_produccion_por_area
+group by
+  areapermisoconcesion,
+  areayacimiento,
+  provincia,
+  cuenca
+order by prod_pet_total desc
+limit 20;
+```
 
-## Dashboard de BI en Metabase
+### 4. Pozos con produccion mensual
 
-Metabase queda disponible en:
+Usar grafico de linea por periodo.
 
-* Local: `http://localhost:3001`
-* Base conectada: `Oil & Gas Warehouse`
-* Motor: PostgreSQL
-* Host: `postgres`
-* Puerto: `5432`
-* Base: `warehouse`
-* Usuario: `dwh`
+```sql
+select
+  periodo,
+  pozos_con_produccion
+from semantic.vw_produccion_mensual
+order by fecha_mes;
+```
 
-El dashboard armado para usuarios de negocio se llama `Oil & Gas BI Dashboard`.
+### 5. Frescura de datos
 
-Tarjetas mínimas del dashboard:
+Usar tarjeta KPI o tabla chica.
 
-1. **Producción mensual**
-   Usa `semantic.vw_produccion_mensual`.
+```sql
+select
+  ultimo_periodo_disponible,
+  ultima_ingesta,
+  registros_totales,
+  pozos_distintos,
+  archivos_fuente,
+  dias_desde_ultimo_periodo
+from semantic.vw_frescura_datos;
+```
 
-2. **Producción por operadora**
-   Usa `semantic.vw_produccion_por_operadora`.
+### 6. Estado de calidad
 
-3. **Producción por área**
-   Usa `semantic.vw_produccion_por_area`.
+Usar tabla o grafico por estado/severidad.
 
-4. **Frescura de datos**
-   Usa `semantic.vw_frescura_datos`.
+```sql
+select
+  status,
+  severity,
+  count(*) as checks
+from quality.data_quality_results
+where executed_at = (
+  select max(executed_at)
+  from quality.data_quality_results
+)
+group by status, severity
+order by severity, status;
+```
 
-5. **Pozos con producción mensual**
-   Usa `semantic.vw_produccion_mensual`.
+Consulta alternativa para detalle:
 
-6. **Estado de calidad**
-   Usa `quality.data_quality_results`.
+```sql
+select
+  check_name,
+  layer,
+  table_name,
+  dimension,
+  status,
+  severity,
+  rows_failed,
+  executed_at
+from quality.data_quality_results
+order by executed_at desc
+limit 20;
+```
 
-Las consultas del dashboard se hacen sobre vistas del schema `semantic` y sobre la tabla `quality.data_quality_results`. No se consulta directamente Bronze, porque Bronze contiene datos crudos y está pensado como evidencia de ingesta, no como capa de consumo para negocio.
+---
 
-Para validar que Metabase y las vistas de BI están disponibles, ejecutar:
+## 5. Validacion manual
+
+Antes de cerrar la entrega:
+
+- Metabase abre en `http://localhost:3001`.
+- La base `Oil & Gas Warehouse` conecta correctamente.
+- Las vistas `semantic.*` aparecen en el explorador.
+- El dashboard tiene datos, no solo tarjetas vacias.
+- Las tarjetas usan `semantic.*` o `quality.*`, no Bronze.
+- Dejar evidencia del dashboard y de una consulta SQL abierta.
+
+Validacion por script:
 
 ```bash
 bash scripts/metabase-smoke.sh
 ```
+
+Ese script valida health de Metabase, existencia de vistas semantic y resultados de calidad. No reemplaza la revision visual del dashboard.
+
+---
+
+## 6. Si algo falla
+
+### No abre Metabase
+
+```bash
+docker compose ps metabase
+docker compose logs metabase
+```
+
+### No conecta al warehouse
+
+Revisar que el host sea `postgres` y el puerto `5432` dentro de Metabase. `localhost:5433` solo sirve desde la maquina host, no desde el contenedor.
+
+### Las vistas no existen
+
+Pedir al rol tecnico que corra:
+
+```bash
+cd dbt
+dbt build
+cd ..
+```
+
+### No hay resultados de calidad
+
+Pedir al rol tecnico que corra:
+
+```bash
+python -m quality.checks
+```
+
+### El dashboard muestra datos raros
+
+1. Revisar frescura.
+2. Revisar estado de calidad.
+3. Comparar una metrica contra la vista semantic correspondiente.
+4. Escalar al Analytics Engineer si hay `FAILED` critico o cambios de fuente.
+
+---
+
+## 7. Decisiones del proyecto desde este rol
+
+Decision funcional:
+
+- El usuario BI consume metricas desde la capa `semantic`, no desde Bronze ni desde SQL ad hoc sobre tablas crudas. Esto reduce diferencias entre tarjetas y evita que cada consulta calcule la misma metrica de forma distinta.
+
+Decision no funcional:
+
+- El dashboard se arma desde UI y queda reproducible por runbook, no provisionado automaticamente por API de Metabase. Para esta entrega se priorizo que el usuario de negocio pueda inspeccionar datos reales y que el equipo pueda reconstruir las tarjetas sin manejar tokens internos de Metabase.
+
+Limitacion:
+
+- Si se borra el volumen de Metabase, el dashboard visual puede perderse y debe reconstruirse con las consultas de este runbook.

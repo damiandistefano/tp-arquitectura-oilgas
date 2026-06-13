@@ -1,6 +1,9 @@
-dagster==1.7.14
-dagster-webserver==1.7.14
+dagster==1.9.13
+dagster-webserver==1.9.13
+dbt-core==1.9.0
+dbt-postgres==1.9.0
 pandas
 requests
+psycopg[binary]==3.2.10
 psycopg2-binary
 python-dotenv

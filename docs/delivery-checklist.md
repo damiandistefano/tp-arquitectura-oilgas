@@ -1,122 +1,122 @@
-# Checklist de entrega — Adenda 2
+# Checklist de entrega - Adenda 2
 
-Responsable: Integrante 3 (governance, documentación, validación final).
+Este documento es la verdad operativa para cerrar la entrega. Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
 
-Este documento registra el estado real de la plataforma antes de la entrega y sirve como guía de
-verificación el día de la demo. La regla es: si algo no está listo, se anota como pendiente — no
-se promete más de lo que hay.
+Responsables por area:
+
+- I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill.
+- I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase.
+- I3: governance/DataHub, README, ADR review, runbooks, checklist final y evidencia de entrega.
 
 ---
 
 ## 1. Estado por componente
 
-| Componente | Responsable | Estado | Notas |
+| Componente | Responsable | Estado para entrega | Evidencia esperada |
 |---|---|---|---|
-| API REST + monitoreo (Prometheus/Grafana/Alertmanager/cAdvisor) | I3 (Fase 1) | ✅ Listo | Puerto 8000 / 3000 / 9090 / 9093. Dashboard provisioned. |
-| Ingesta bronze (`extract/`) | I1 | ✅ Listo | Escribe `bronze.raw_produccion_no_convencional` y `bronze.raw_pozos_operadoras` desde `datos.energia.gob.ar`. |
-| Transformación silver/gold/semantic (dbt) | I2 | ✅ Listo | 4 tablas silver, 6 tablas gold, 4 vistas semantic. Requiere correr `dbt run`. |
-| Calidad de datos (`quality/`) | I2 | ✅ Listo | Persiste en `quality.data_quality_results`. Checks: schema, completeness, uniqueness, freshness, lineage. |
-| Metabase (BI) | I2 | ✅ Listo (conexión manual) | Puerto 3001. Conexión al warehouse se configura en la UI la primera vez. |
-| Orquestación (Dagster) | I1 | ⏳ Verificar con I1 | Puerto 3002. |
-| DataHub (gobierno de datos) | I3 | ⏳ Pendiente | Puerto 9002. Stack pesado (~6-8 GB RAM), se levanta local para la demo. No corre en EC2 sandbox chica. |
+| API REST + Swagger | Equipo / Fase 1 | Listo | `/health`, `/docs`, endpoints con API key |
+| Monitoreo tecnico | Equipo / Fase 1 | Listo | Grafana, Prometheus targets, Alertmanager |
+| PostgreSQL warehouse | I1 | Listo | Schemas `bronze`, `silver`, `gold`, `quality`, `metadata`, `semantic` |
+| Ingesta Bronze | I1 | Listo | Tablas `bronze.raw_*` con filas y metadata |
+| Dagster | I1 | Validado localmente | UI `:3002`, assets visibles, corrida del pipeline o logs |
+| dbt Silver/Gold/Semantic | I2 | Listo | `dbt build`, tablas/vistas con filas, dbt Docs |
+| Calidad persistida | I2 | Listo | `quality.data_quality_results` con resultados recientes |
+| Metabase | I2 | Listo con setup manual | Dashboard `Oil & Gas BI Dashboard`, 6 tarjetas con datos |
+| DataHub / governance | I3 | Stack externo en EC2 dedicada | UI `:9002`, datasets del warehouse, columnas/tipos y metadata tecnica |
+| Documentacion | I3 + equipo | Lista para entrega | README, ADRs, runbooks, contratos y checklist coherentes |
+
+Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su quickstart es pesado. Se opera con una EC2 dedicada y on-demand; ver [docs/runbooks/datahub.md](runbooks/datahub.md).
 
 ---
 
-## 2. Cómo levantar todo de cero
+## 2. Arranque desde cero
 
 ### Pre-requisitos
+
 - Docker Desktop o Docker Engine + Docker Compose.
-- Python 3.x con `pip`.
-- Acceso a internet (para descargar CSVs de `datos.energia.gob.ar`).
+- Python 3 con `pip`, o entorno equivalente usado por el equipo.
+- Acceso a internet para descargar CSVs desde datos.energia.gob.ar.
 
-### Paso a paso
+### 1. Configurar entorno
 
-**1. Configurar entorno**
 ```bash
 cp .env.example .env
-# Editar .env si hace falta (SLACK_WEBHOOK_URL para alertas reales)
 ```
 
-**2. Levantar el stack base**
+Revisar puertos segun desde donde se ejecute:
+
+- Desde la maquina host: Postgres se accede por `localhost:5433`.
+- Desde contenedores en Compose: Postgres se accede por `postgres:5432`.
+
+### 2. Levantar stack
+
 ```bash
 docker compose up --build -d
-```
-
-Esto levanta: Postgres warehouse (`5433`), API (`8000`), Prometheus (`9090`), Grafana (`3000`),
-Alertmanager (`9093`), cAdvisor (`8080`), Metabase (`3001`).
-
-Esperar a que Postgres esté healthy antes de continuar:
-```bash
 docker compose ps
-# warehouse-postgres debe mostrar (healthy)
 ```
 
-**3. Cargar bronze (Integrante 1)**
+Servicios esperados:
+
+- `postgres` / `warehouse-postgres` healthy.
+- `api` en `8000`.
+- `prometheus` en `9090`.
+- `grafana` en `3000`.
+- `alertmanager` en `9093`.
+- `cadvisor` en `8080`.
+- `metabase` en `3001`.
+- `dagster` en `3002`.
+
+### 3. Ejecutar pipeline de datos
+
+Opcion A: desde Dagster UI.
+
+1. Abrir `http://localhost:3002`.
+2. Ver assets `extract_to_bronze`, `run_silver_transformations`, `run_quality_checks`.
+3. Materializar el pipeline.
+4. Revisar logs por asset.
+
+Opcion B: comandos manuales.
+
 ```bash
-pip install -r requirements.txt
 python -m extract.load_to_bronze
+
+cd dbt
+dbt debug
+dbt build
+dbt docs generate
+cd ..
+
+python -m quality.checks
 ```
-
-Esto descarga los CSVs y llena `bronze.raw_produccion_no_convencional` y `bronze.raw_pozos_operadoras`.
-
-**4. Correr transformaciones dbt (Integrante 2)**
-```bash
-pip install -r requirements-dev.txt
-cp dbt/profiles.example.yml ~/.dbt/profiles.yml
-# Verificar que profiles.yml apunte a localhost:5433
-dbt run --project-dir dbt/
-```
-
-Esto construye las tablas silver/gold y las vistas semantic en el warehouse.
-
-**5. Correr checks de calidad (Integrante 2)**
-```bash
-bash scripts/run-quality-checks.sh
-```
-
-Persiste resultados en `quality.data_quality_results`. Si falla un check crítico, sale con exit code ≠ 0.
-
-**6. Conectar Metabase al warehouse**
-
-Entrar a `http://localhost:3001`, completar el setup inicial con las credenciales del `.env`
-(`METABASE_ADMIN_EMAIL` / `METABASE_ADMIN_PASSWORD`) y agregar una conexión a PostgreSQL:
-- Host: `postgres` (nombre del contenedor en la red Docker)
-- Puerto: `5432`
-- DB: `warehouse`
-- Usuario: `dwh` / Contraseña: `dwh`
 
 ---
 
-## 3. Verificaciones pre-entrega
+## 3. Verificaciones automaticas y semi-automaticas
 
-### Stack y código
+### Codigo y configuracion
+
 ```bash
-# Análisis estático
-python -m ruff check .
-
-# Tests (los de API no necesitan DB; los de ingesta/calidad necesitan la DB levantada)
-pytest tests/test_api.py -q
-pytest tests/test_data_ingestion.py tests/test_data_quality.py -q  # con DB levantada
-
-# Sanity de los compose
+ruff check .
+pytest -q
 docker compose config
-docker compose -f docker-compose.deploy.yml config
+IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
 ```
 
 ### API y monitoreo
+
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/openapi.json
 curl -H "X-API-Key: abcdef12345" "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
-curl http://localhost:3000/api/health     # Grafana
-curl http://localhost:9090/-/healthy      # Prometheus
+curl http://localhost:3000/api/health
+curl http://localhost:9090/-/healthy
 ```
 
-### Datos en el warehouse
+### Warehouse
+
 ```bash
-# Contar filas en las capas principales (requiere psql o cualquier cliente Postgres)
 psql -h localhost -p 5433 -U dwh -d warehouse -c "
-  SELECT 'bronze.raw_produccion' AS tabla, count(*) FROM bronze.raw_produccion_no_convencional
+  SELECT 'bronze.raw_produccion_no_convencional' AS tabla, count(*) FROM bronze.raw_produccion_no_convencional
   UNION ALL
   SELECT 'bronze.raw_pozos', count(*) FROM bronze.raw_pozos_operadoras
   UNION ALL
@@ -128,14 +128,67 @@ psql -h localhost -p 5433 -U dwh -d warehouse -c "
 "
 ```
 
-### Calidad de datos
+### Calidad
+
 ```bash
 psql -h localhost -p 5433 -U dwh -d warehouse -c "
   SELECT check_name, layer, table_name, status, severity, executed_at
   FROM quality.data_quality_results
-  ORDER BY executed_at DESC LIMIT 20;
+  ORDER BY executed_at DESC
+  LIMIT 20;
 "
 ```
+
+### Metabase
+
+Entrar a `http://localhost:3001` y validar:
+
+- login `martinbianchi@udesa.edu.ar` / `Admin1234!`;
+- conexion a PostgreSQL `postgres:5432`;
+- base `warehouse`;
+- dashboard `Oil & Gas BI Dashboard`;
+- tarjetas con datos sobre `semantic.*` y `quality.data_quality_results`;
+- evidencia de validacion.
+
+### Dagster
+
+Entrar a `http://localhost:3002` y validar:
+
+- assets visibles;
+- grafo de dependencias;
+- corrida exitosa o, si falla, logs claros;
+- evidencia de validacion.
+
+### dbt Docs
+
+```bash
+cd dbt
+dbt docs generate
+dbt docs serve
+```
+
+Validar modelos, columnas, tests y lineage.
+
+### DataHub
+
+Validar en la EC2 dedicada antes de grabar o mostrar la demo:
+
+| Dato | Valor |
+|---|---|
+| URL final | `http://<ip-datahub>:9002` |
+| Como se levanta | `datahub docker quickstart` en EC2 dedicada |
+| Credenciales | `datahub` / `datahub` |
+| Ingesta | `datahub ingest -c datahub/recipe.postgres.yml` |
+| Datasets visibles | `bronze`, `silver`, `gold`, `quality`, `metadata`, `semantic` |
+| Evidencia guardada | Capturas o registro de validacion de UI |
+
+Evidencia minima esperada:
+
+- datasets del warehouse visibles;
+- columnas y tipos visibles;
+- capas medallion navegables;
+- detalle de `gold.fact_produccion_pozo`;
+- si la UI muestra lineage, incluirlo; si no, apoyar el linaje tecnico con dbt Docs y Dagster.
 
 ---
 
@@ -143,83 +196,75 @@ psql -h localhost -p 5433 -U dwh -d warehouse -c "
 
 ### ADRs
 
-Ver índice completo en [docs/adr/README.md](adr/README.md).
+Ver indice completo en [docs/adr/README.md](adr/README.md).
 
-| # | Estado |
+| Rango | Estado |
 |---|---|
-| 0001–0005 (Fase 1) | ✅ Presentes, revisados |
-| 0006–0008 (I1: orquestación, backfill, warehouse) | ⏳ Pendientes (I1) |
-| 0009–0012 (I2: medallion, gold, calidad, semantic) | ✅ Presentes |
-| 0013 (I3: DataHub) | ⏳ Pendiente (I3, parqueado) |
-| 0014 (I2: Metabase) | ⏳ Pendiente (I2) |
+| 0001-0005 | Presentes, Fase 1 |
+| 0006-0008 | Presentes, I1: Dagster, carga/backfill, warehouse |
+| 0009-0012 | Presentes, I2: Medallion, Gold, calidad, Semantic |
+| 0013 | Presente, I3: DataHub / governance |
+| 0014 | Presente, I2: Metabase / BI |
 
 ### Runbooks
 
 | Archivo | Estado |
 |---|---|
-| `docs/runbooks/local-stack.md` | ✅ Presente |
-| `docs/runbooks/deploy-aws.md` | ✅ Presente |
-| `docs/runbooks/sandbox-validation.md` | ✅ Presente |
-| `docs/runbooks/bi-user.md` | ✅ Presente |
-| `docs/runbooks/dbt-analytics.md` | ✅ Presente |
-| `docs/runbooks/data-engineer.md` | ⏳ Pendiente (I3) |
+| `docs/runbooks/local-stack.md` | Presente |
+| `docs/runbooks/deploy-aws.md` | Presente |
+| `docs/runbooks/sandbox-validation.md` | Presente |
+| `docs/runbooks/bi-user.md` | Presente |
+| `docs/runbooks/dbt-analytics.md` | Presente |
+| `docs/runbooks/data-engineer.md` | Presente |
+| `docs/runbooks/datahub.md` | Presente |
 
-### Contratos de datos y modelo
+### Datos y calidad
 
-| Archivo | Estado | Nota |
-|---|---|---|
-| `docs/data-contracts-2.md` | ✅ Presente | Nombre difiere del esperado en PDF (`data-contracts.md`). Coordinar con I1/I2. |
-| `docs/data-model.md` | ✅ Presente | — |
-| `docs/quality-checks.md` | ✅ Presente | — |
-
-### URLs oficiales de entrega
-
-Ver [README.md — sección "URLs oficiales de entrega"](../README.md#urls-oficiales-de-entrega).
+| Archivo | Estado |
+|---|---|
+| `docs/data-contracts-2.md` | Presente |
+| `docs/data-model.md` | Presente |
+| `docs/quality-checks.md` | Presente |
 
 ---
 
-## 5. Responsabilidades por integrante (PDF §11)
-
-| Área | I1 | I2 | I3 |
-|---|---|---|---|
-| Extracción + bronze | ✅ | — | — |
-| Metadata de pipeline | ✅ | — | — |
-| Orquestación | ✅ | — | — |
-| Silver + Gold (dbt) | — | ✅ | — |
-| Calidad persistida | — | ✅ | — |
-| BI (Metabase) | — | ✅ | — |
-| Semantic layer | — | ✅ | — |
-| README | — | — | ✅ |
-| ADR review | — | — | ✅ |
-| Runbooks | — | — | ✅ |
-| DataHub / governance | — | — | ✅ |
-| Checklist final | — | — | ✅ |
-
----
-
-## 6. Checklist para el día de la demo
+## 5. Checklist final de entrega
 
 ### Stack base
+
 - [ ] `docker compose up --build -d` levanta sin errores.
-- [ ] `warehouse-postgres` muestra `(healthy)` en `docker compose ps`.
-- [ ] API responde: `curl http://localhost:8000/health` → 200.
-- [ ] Grafana accesible: `http://localhost:3000` (admin/admin).
-- [ ] Prometheus accesible: `http://localhost:9090`.
+- [ ] Postgres queda healthy.
+- [ ] API responde `/health`.
+- [ ] Grafana abre en `:3000`.
+- [ ] Prometheus abre en `:9090`.
+- [ ] Dagster abre en `:3002`.
+- [ ] Metabase abre en `:3001`.
 
 ### Pipeline de datos
-- [ ] `python -m extract.load_to_bronze` corre sin errores. Bronze tiene filas.
-- [ ] `dbt run --project-dir dbt/` corre sin errores. Silver/gold/semantic tienen filas.
-- [ ] `bash scripts/run-quality-checks.sh` sale con exit 0. Resultados visibles en `quality.data_quality_results`.
-- [ ] Metabase (`localhost:3001`) conectado al warehouse. Dashboard visible.
 
-### Documentación
-- [ ] ADRs 0001–0005 y 0009–0012 presentes y con "Alternativas consideradas".
-- [ ] Runbooks de operación presentes (local-stack, deploy-aws, sandbox-validation, bi-user, dbt-analytics).
-- [ ] `docs/delivery-checklist.md` (este archivo) actualizado con el estado real.
-- [ ] `README.md` — sección "URLs oficiales de entrega" refleja el estado real.
+- [ ] Bronze tiene filas.
+- [ ] dbt construye Silver/Gold/Semantic.
+- [ ] Quality checks se persisten y no hay `FAILED` criticos sin explicar.
+- [ ] Dagster muestra corrida o logs de la orquestacion.
+- [ ] Metabase muestra dashboard con datos.
+- [ ] dbt Docs muestra lineage.
+- [ ] DataHub abre en `:9002` y muestra datasets del warehouse.
+
+### Documentacion
+
+- [ ] README refleja el estado real.
+- [ ] ADRs tienen alternativas y trade-offs.
+- [ ] Runbooks tienen pasos, validacion y que hacer si falla.
+- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas.
+- [ ] No se promete produccion real ni alta disponibilidad.
 
 ### Entrega final
-- [ ] Rama `develop` con todos los merges integrados.
-- [ ] CI en verde en `develop`.
-- [ ] Merge `develop` → `main` con CI en verde.
-- [ ] Tag de release creado en `main` (`git tag v1.0.0`).
+
+- [ ] `develop` tiene todos los merges.
+- [ ] CI en verde.
+- [ ] Imagen GHCR publicada para el commit final si se usa deploy desde registry.
+- [ ] Smoke test de AWS ejecutado por script o workflow manual si se muestra EC2.
+- [ ] Merge a `main`.
+- [ ] Tag de release en `main`.
+- [ ] Zip armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
+- [ ] Zip armado y revisado contra la lista de exclusiones.

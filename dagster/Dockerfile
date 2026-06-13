@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 3002
 
-CMD ["dagster", "dev", "-h", "0.0.0.0", "-p", "3002", "-f", "dwh_pipeline/definitions.py"]
+CMD ["dagster", "dev", "-h", "0.0.0.0", "-p", "3002", "-m", "dwh_pipeline.definitions"]

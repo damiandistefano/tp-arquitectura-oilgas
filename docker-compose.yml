@@ -27,6 +27,16 @@ services:
       - "3002:3002"
     env_file:
       - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-dwh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dwh}
+      PRODUCCION_SOURCE_URL: ${PRODUCCION_SOURCE_URL:-http://datos.energia.gob.ar/dataset/c846e79c-026c-4040-897f-1ad3543b407c/resource/b5b58cdc-9e07-41f9-b392-fb9ec68b0725/download/produccin-de-pozos-de-gas-y-petrleo-no-convencional.csv}
+      POZOS_SOURCE_URL: ${POZOS_SOURCE_URL:-http://datos.energia.gob.ar/dataset/c846e79c-026c-4040-897f-1ad3543b407c/resource/cbfa4d79-ffb3-4096-bab5-eb0dde9a8385/download/listado-de-pozos-cargados-por-empresas-operadoras.csv}
+      DATA_PIPELINE_RETRIES: ${DATA_PIPELINE_RETRIES:-3}
+      DATA_PIPELINE_RETRY_BACKOFF_SECONDS: ${DATA_PIPELINE_RETRY_BACKOFF_SECONDS:-30}
     volumes:
       - ./extract:/workspace/extract:ro
       - ./dbt:/workspace/dbt:ro

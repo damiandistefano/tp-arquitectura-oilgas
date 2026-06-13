@@ -2,6 +2,12 @@ version: 2
 
 models:
   - name: vw_produccion_mensual
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "semantic"
+      sensitivity: "publica"
+      consumers: ["Metabase", "BI user"]
     description: "Vista semántica con métricas mensuales de producción."
     columns:
       - name: fecha_mes
@@ -15,6 +21,12 @@ models:
           - not_null
 
   - name: vw_produccion_por_operadora
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "semantic"
+      sensitivity: "publica"
+      consumers: ["Metabase", "BI user"]
     description: "Vista semántica con métricas mensuales por operadora."
     columns:
       - name: fecha_mes
@@ -31,6 +43,12 @@ models:
           - not_null
 
   - name: vw_frescura_datos
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "semantic"
+      sensitivity: "publica"
+      consumers: ["Metabase", "BI user", "Data engineer"]
     description: "Vista semántica para revisar frescura y cobertura general de datos."
     columns:
       - name: ultima_ingesta
@@ -43,6 +61,12 @@ models:
           - not_null
 
   - name: vw_produccion_por_area
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "semantic"
+      sensitivity: "publica"
+      consumers: ["Metabase", "BI user"]
     description: "Vista semántica con métricas mensuales por área y yacimiento."
     columns:
       - name: fecha_mes

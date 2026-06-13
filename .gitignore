@@ -142,6 +142,9 @@ celerybeat.pid
 .aws/
 credentials
 
+# Contexto local de trabajo academico, no va en la entrega
+contexto/
+
 # Spyder project settings
 .spyderproject
 .spyproject

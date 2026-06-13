@@ -77,6 +77,25 @@ def build_source_file_record(
     }
 
 
+def build_source_payload(source, run_id: str, *, include_rows: bool = True):
+    rows = build_bronze_rows(source, run_id) if include_rows else []
+    return {
+        "source_name": source.name,
+        "source_url": source.url,
+        "source_file_hash": source.file_hash,
+        "rows": rows,
+        "row_count": len(source.rows),
+        "metadata": build_source_file_record(
+            run_id,
+            source.name,
+            source.url,
+            source.file_hash,
+            len(source.rows),
+            f"bronze.raw_{source.name}",
+        ),
+    }
+
+
 def build_ingestion_payload(download_fn=download_source):
     run_id = str(uuid4())
     pipeline_name = "bronze_ingestion"
@@ -98,22 +117,7 @@ def build_ingestion_payload(download_fn=download_source):
             len(source.rows),
         )
 
-        bronze_payload["sources"].append(
-            {
-                "source_name": source.name,
-                "source_url": source.url,
-                "source_file_hash": source.file_hash,
-                "rows": build_bronze_rows(source, run_id),
-                "metadata": build_source_file_record(
-                    run_id,
-                    source.name,
-                    source.url,
-                    source.file_hash,
-                    len(source.rows),
-                    f"bronze.raw_{source.name}",
-                ),
-            }
-        )
+        bronze_payload["sources"].append(build_source_payload(source, run_id))
 
     logger.info("Payload built for run %s with %s source(s)", run_id, len(sources))
     return bronze_payload
@@ -149,7 +153,7 @@ def summarize_payload(payload: dict) -> dict:
             {
                 "source_name": source["source_name"],
                 "source_file_hash": source["source_file_hash"],
-                "rows": len(source["rows"]),
+                "rows": source.get("row_count", len(source["rows"])),
                 "target_table": source["metadata"]["target_table"],
             }
             for source in payload["sources"]
@@ -186,21 +190,40 @@ def persist_payload(payload: dict) -> None:
 
 
 def persist_ingestion(download_fn=download_source):
-    payload = build_ingestion_payload(download_fn=download_fn)
+    run_id = str(uuid4())
+    pipeline_name = "bronze_ingestion"
+    logger.info("Starting ingestion run: %s", run_id)
 
+    payload = {
+        "run_id": run_id,
+        "pipeline_run": build_pipeline_run(run_id, pipeline_name, "SUCCESS"),
+        "sources": [],
+    }
     sources_to_load = []
     skipped_sources = []
 
-    for source in payload["sources"]:
-        if has_source_been_loaded(source["source_name"], source["source_file_hash"]):
+    for cfg in get_source_configs():
+        source = download_fn(cfg.name, cfg.url)
+        already_loaded = has_source_been_loaded(source.name, source.file_hash)
+
+        if already_loaded:
             logger.info(
                 "Skipping source %s - already loaded with hash %s",
-                source["source_name"],
-                source["source_file_hash"],
+                source.name,
+                source.file_hash,
             )
-            skipped_sources.append(source["source_name"])
-        else:
-            sources_to_load.append(source)
+            skipped_sources.append(source.name)
+            payload["sources"].append(build_source_payload(source, run_id, include_rows=False))
+            continue
+
+        logger.info(
+            "Building payload for source: %s (%s rows)",
+            source.name,
+            len(source.rows),
+        )
+        source_payload = build_source_payload(source, run_id)
+        payload["sources"].append(source_payload)
+        sources_to_load.append(source_payload)
 
     if not sources_to_load:
         logger.info("All sources already loaded, nothing to do")

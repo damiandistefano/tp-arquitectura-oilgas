@@ -1,11 +1,46 @@
 """Assets del pipeline de datos."""
 
+import os
+from pathlib import Path
 import subprocess
 import sys
 
 from dagster import Backoff, RetryPolicy, asset, get_dagster_logger
 
 _WORKSPACE = "/workspace"
+_DBT_PROJECT_DIR = f"{_WORKSPACE}/dbt"
+_DBT_PROFILES_DIR = "/tmp/dbt-profiles"
+_DBT_TARGET_DIR = "/tmp/dbt-target"
+_DBT_LOG_DIR = "/tmp/dbt-logs"
+
+
+def _write_dbt_profile() -> str:
+    """Create a writable dbt profile for the Dagster container."""
+    profile_dir = Path(_DBT_PROFILES_DIR)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    host = os.getenv("POSTGRES_HOST", "postgres")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    dbname = os.getenv("POSTGRES_DB", "warehouse")
+    user = os.getenv("POSTGRES_USER", "dwh")
+    password = os.getenv("POSTGRES_PASSWORD", "dwh")
+
+    profile = f"""oilgas_analytics:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: {host}
+      port: {port}
+      user: {user}
+      password: {password}
+      dbname: {dbname}
+      schema: analytics
+      threads: 4
+"""
+
+    (profile_dir / "profiles.yml").write_text(profile, encoding="utf-8")
+    return str(profile_dir)
 
 
 @asset(
@@ -41,9 +76,21 @@ def extract_to_bronze():
 def run_silver_transformations():
     log = get_dagster_logger()
     log.info("Corriendo modelos dbt (silver + gold)")
+    profiles_dir = _write_dbt_profile()
 
     result = subprocess.run(
-        ["dbt", "build", "--project-dir", f"{_WORKSPACE}/dbt", "--profiles-dir", f"{_WORKSPACE}/dbt"],
+        [
+            "dbt",
+            "build",
+            "--project-dir",
+            _DBT_PROJECT_DIR,
+            "--profiles-dir",
+            profiles_dir,
+            "--target-path",
+            _DBT_TARGET_DIR,
+            "--log-path",
+            _DBT_LOG_DIR,
+        ],
         capture_output=True,
         text=True,
         check=False,

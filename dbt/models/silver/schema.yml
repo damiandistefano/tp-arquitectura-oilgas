@@ -3,6 +3,12 @@ version: 2
 models:
   - name: produccion_no_convencional
     description: Produccion no convencional tipada desde Bronze.
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "silver"
+      sensitivity: "publica"
+      consumers: ["gold.fact_produccion_pozo", "gold.dim_pozo"]
     columns:
       - name: produccion_id
         tests:
@@ -32,6 +38,12 @@ models:
 
   - name: pozos_operadoras
     description: Pozos y operadoras tipados desde Bronze.
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "silver"
+      sensitivity: "publica"
+      consumers: ["gold.dim_pozo", "gold.dim_operadora", "gold.dim_area", "gold.dim_yacimiento"]
     columns:
       - name: idpozo
         tests:

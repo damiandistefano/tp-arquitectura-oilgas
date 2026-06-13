@@ -1,37 +1,70 @@
 # Data Contracts - Fase 2
 
+Este documento define el contrato minimo de datos para la Adenda 2. No reemplaza a dbt ni a los tests de calidad: sirve para que el equipo sepa que tablas existen, quien las consume y que reglas no se deberian romper antes de entregar.
 
-## 1. Stack y supuestos base
+---
 
-- Warehouse local/sandbox: PostgreSQL.
-- Orquestación: Dagster o equivalente, con DAGs definidos como código.
-- Transformación: dbt.
-- BI: Metabase.
-- Gobierno de datos: DataHub.
-- Estrategia general: arquitectura medallion con `bronze`, `silver`, `gold`, `quality`, `metadata` y `semantic`.
+## 1. Stack base
+
+| Componente | Decision |
+|---|---|
+| Warehouse | PostgreSQL local/sandbox |
+| Orquestacion | Dagster con assets definidos como codigo |
+| Transformacion | dbt |
+| BI | Metabase |
+| Calidad | Checks propios persistidos en `quality.data_quality_results` + tests dbt |
+| Governance | DataHub como catalogo externo + dbt Docs, contratos, metadata y quality persistida |
+
+---
 
 ## 2. Schemas del warehouse
 
 | Schema | Uso |
 |---|---|
-| `bronze` | Datos crudos o casi crudos, con evidencia de la fuente. |
+| `bronze` | Datos crudos o casi crudos, con evidencia de fuente y corrida. |
 | `silver` | Datos limpios, tipados, normalizados y deduplicados. |
-| `gold` | Modelo estrella listo para BI y consumo analítico. |
-| `quality` | Resultados persistidos de chequeos de calidad. |
-| `metadata` | Corridas, fuentes, hashes, timestamps y estado del pipeline. |
-| `semantic` | Vistas lógicas con métricas oficiales. Bonus. |
+| `gold` | Modelo estrella listo para analisis y BI. |
+| `quality` | Resultados persistidos de checks. |
+| `metadata` | Corridas, fuentes, hashes, timestamps y estado. |
+| `semantic` | Vistas logicas con metricas oficiales para consumo. |
 
-## 3. Tablas mínimas esperadas
+---
+
+## 3. Datasets esperados
 
 ### Bronze
 
 - `bronze.raw_produccion_no_convencional`
 - `bronze.raw_pozos_operadoras`
 
+Contrato:
+
+- conservar payload crudo o equivalente auditable;
+- conservar metadata de corrida;
+- no limpiar agresivamente;
+- permitir volver a la fuente/hash/run.
+
+Metadata obligatoria:
+
+- `_run_id`
+- `_source_name`
+- `_source_url`
+- `_source_file_hash`
+- `_ingested_at`
+- `_raw_row_number`
+
 ### Silver
 
 - `silver.produccion_no_convencional`
 - `silver.pozos_operadoras`
+
+Contrato:
+
+- tipos normalizados;
+- fechas validas cuando aplique;
+- claves principales conservadas;
+- metadata de origen conservada;
+- no mezclar logica de dashboard.
 
 ### Gold
 
@@ -42,119 +75,126 @@
 - `gold.dim_area`
 - `gold.dim_yacimiento`
 
+Contrato:
+
+- `gold.fact_produccion_pozo` tiene grano mensual por pozo/registro de produccion;
+- las dimensiones se usan para BI y analisis;
+- se usan surrogate keys donde aplica;
+- SCD tipo 1 para dimensiones mutables por alcance academico.
+
 ### Quality
 
 - `quality.data_quality_results`
+
+Contrato:
+
+- todo check relevante debe dejar resultado persistido;
+- los checks criticos deben poder fallar el pipeline;
+- warnings quedan visibles sin necesariamente bloquear.
 
 ### Metadata
 
 - `metadata.pipeline_runs`
 - `metadata.source_files`
 
+Contrato:
+
+- registrar corrida, fuente, hash, filas cargadas y timestamps;
+- permitir explicar que version de fuente alimento una capa downstream.
+
 ### Semantic
 
 - `semantic.vw_produccion_mensual`
 - `semantic.vw_produccion_por_operadora`
+- `semantic.vw_produccion_por_area`
 - `semantic.vw_frescura_datos`
 
-## 4. Metadata obligatoria en Bronze
+Contrato:
 
-Toda tabla Bronze debe conservar las columnas originales de la fuente y sumar, como mínimo:
+- exponer metricas de negocio ya agregadas;
+- ser la fuente principal para Metabase;
+- evitar que usuarios BI consulten Bronze.
 
-- `_run_id`
-- `_source_name`
-- `_source_url`
-- `_source_file_hash`
-- `_ingested_at`
-- `_raw_row_number`
+---
 
-Regla: Bronze no hace limpieza agresiva. Bronze guarda evidencia.
+## 4. Estrategia de carga
 
-## 5. Estrategia de carga
+La estrategia aceptada esta en [ADR 0007](adr/0007-definir-estrategia-de-carga-y-backfill.md):
 
-### Extracción
+- full download de CSV publico en cada corrida;
+- hash de archivo completo;
+- Bronze append-only por corrida nueva;
+- si el hash ya fue cargado, no se duplica esa fuente;
+- dbt reconstruye modelos downstream de forma idempotente.
 
-- Full download del CSV público en cada corrida.
-- Se valida que el archivo no esté vacío y que se puedan leer headers.
+No hay CDC real ni incremental por fila porque la fuente publica no ofrece `updated_at` o endpoint incremental confiable.
 
-### Bronze
+Backfill/reprocesamiento:
 
-- Append-only por corrida.
-- Cada carga conserva hash, timestamps y trazabilidad de origen.
+- Para esta fuente, el reprocesamiento sirve principalmente para reconstruir Silver/Gold/Semantic ante cambios de modelos o correcciones.
+- `scripts/backfill.sh` recibe una fecha o rango como intencion operativa, pero por las limitaciones de la fuente descarga el CSV completo disponible y reconstruye downstream.
+- No se promete reprocesamiento historico fino por particion: el alcance defendible es reproceso batch completo, idempotente y verificable.
 
-### Silver
+---
 
-- Reconstrucción o upsert idempotente desde la última corrida válida.
+## 5. Calidad de datos
 
-### Gold
+Checks minimos esperados:
 
-- Rebuild o upsert idempotente del modelo estrella.
+| Dimension | Ejemplos | Severidad esperada |
+|---|---|---|
+| Schema | columnas esperadas existen | Critical |
+| Completeness | claves/fechas principales no nulas | Critical |
+| Uniqueness | grano o surrogate keys sin duplicados | Critical |
+| Relationships / lineage | fact con dimensiones relacionadas, metadata no nula | Critical |
+| Freshness | ultimo periodo/fuente dentro de umbral definido | Warning |
 
-### Backfill
+Consecuencia operativa:
 
-- Debe permitir reprocesar una fecha o rango desde Bronze/Silver sin duplicar datos.
+- si falla un critical, el quality gate debe devolver exit code distinto de cero;
+- el resultado debe quedar en `quality.data_quality_results`;
+- el dashboard o la validacion final deben poder mostrar el estado de calidad.
 
-## 6. Grano y modelo de Gold
+---
 
-- `gold.fact_produccion_pozo`: una fila por pozo y período de producción.
-- El período se define con los headers reales de la fuente, no por suposición.
-- Si la fuente es mensual, el grano es pozo + mes.
-- Si la fuente es diaria, el grano es pozo + día.
+## 6. BI
 
-### Dimensiones esperadas
+Metabase debe consumir:
 
-- `dim_fecha`: fecha, año, mes, trimestre.
-- `dim_pozo`: identificador y atributos del pozo.
-- `dim_operadora`: empresa operadora.
-- `dim_area`: área.
-- `dim_yacimiento`: yacimiento.
+- vistas `semantic.*`;
+- `quality.data_quality_results` para estado de calidad.
 
-## 7. Surrogate keys y SCD
+No consumir Bronze desde BI. Bronze es evidencia de ingesta, no capa de consumo.
 
-Se usarán surrogate keys en dimensiones cuando aplique:
+Dashboard esperado:
 
-- `sk_fecha`
-- `sk_pozo`
-- `sk_operadora`
-- `sk_area`
-- `sk_yacimiento`
+- produccion mensual;
+- produccion por operadora;
+- produccion por area/yacimiento;
+- pozos con produccion;
+- frescura de datos;
+- estado de calidad.
 
-Decisión inicial de SCD:
+---
 
-- `dim_fecha`: no aplica.
-- `dim_operadora`: tipo 1.
-- `dim_area`: tipo 1.
-- `dim_yacimiento`: tipo 1.
-- `dim_pozo`: tipo 1 inicialmente.
+## 7. Governance y DataHub
 
-## 8. Calidad de datos
+La consigna pide plataforma de gobierno y lineage. La entrega cubre ese eje con DataHub como catalogo externo del warehouse, complementado por dbt Docs, metadata operacional y resultados de calidad persistidos.
 
-Los checks de calidad deben persistirse en `quality.data_quality_results`.
+Evidencia esperada en DataHub:
 
-Checks mínimos:
+- datasets de los schemas `bronze`, `silver`, `gold`, `quality`, `metadata` y `semantic`;
+- columnas y tipos de tablas clave;
+- navegacion del catalogo por capas;
+- detalle de `gold.fact_produccion_pozo`.
 
-- schema: columnas esperadas existen.
-- completeness: campos clave no nulos.
-- uniqueness: claves naturales sin duplicados.
-- freshness: última ingesta dentro de umbral acordado.
-- lineage: la tabla es trazable vía `_run_id` y metadata.
+dbt Docs y Dagster complementan la demo para explicar linaje tecnico del pipeline. No decir "governance enterprise". El alcance defendible es gobierno de datos academico: descubrimiento, metadata tecnica, lineage y calidad.
 
-Fallo crítico esperado:
+---
 
-- schema inválido.
-- id o clave natural nula.
-- fecha nula.
-- duplicados en clave natural.
-- fact sin dimensión relacionada.
+## 8. Puertos y variables
 
-Consecuencia operativa mínima:
-
-- el pipeline falla o bloquea la promoción aguas abajo,
-- y queda un registro `FAILED` visible en `quality.data_quality_results`.
-
-## 9. Puertos y variables de entorno
-
-### Puertos sugeridos
+Puertos principales:
 
 - API FastAPI: `8000`
 - Grafana: `3000`
@@ -162,11 +202,11 @@ Consecuencia operativa mínima:
 - Dagster: `3002`
 - Alertmanager: `9093`
 - Prometheus: `9090`
-- Adminer: `8081`
-- DataHub: `9002`
-- Postgres warehouse: `5432` interno / `5433` host si hace falta
+- cAdvisor: `8080`
+- DataHub: `9002` en EC2 dedicada, por fuera del Compose principal
+- Postgres: `5432` interno / `5433` desde host
 
-### Variables mínimas
+Variables minimas:
 
 ```env
 POSTGRES_HOST=postgres
@@ -178,21 +218,19 @@ PRODUCCION_SOURCE_URL=<url_csv_produccion>
 POZOS_SOURCE_URL=<url_csv_pozos>
 DATA_PIPELINE_RETRIES=3
 DATA_PIPELINE_RETRY_BACKOFF_SECONDS=30
-METABASE_ADMIN_EMAIL=admin@demo.com
+METABASE_ADMIN_EMAIL=martinbianchi@udesa.edu.ar
 METABASE_ADMIN_PASSWORD=Admin1234!
 ```
 
-## 10. Criterios de integración
+Atencion: desde la maquina host se usa `POSTGRES_HOST=localhost` y `POSTGRES_PORT=5433`. Desde contenedores se usa `postgres:5432`.
 
-- No se define Gold sin mirar headers reales.
-- No se inventan columnas que no existan en la fuente.
-- No se promueve a Gold si falla un check crítico.
-- No se documenta como producción algo que solo es sandbox académico.
+---
 
-## 11. Qué debe actualizar cada integrante
+## 9. Reglas de integracion
 
-- Integrante 1: extracción, Bronze, metadata, orquestación, backfill, stack base.
-- Integrante 2: Silver, Gold, calidad persistida, BI, semantic layer si aplica.
-- Integrante 3: README, ADR review, runbooks, DataHub, checklist final y validación documental.
-
-
+- No definir Gold sin mirar headers reales.
+- No inventar columnas que no existen en la fuente.
+- No promover a consumo si falla un check critico sin explicarlo.
+- No dejar queries de negocio escondidas solo en Metabase si se pueden versionar como vistas semantic.
+- No documentar como productivo algo que solo es sandbox.
+- Si cambia una parte del pipeline, actualizar README, ADR/runbook afectado y checklist de validacion.

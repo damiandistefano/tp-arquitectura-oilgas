@@ -38,11 +38,11 @@ Esta es la opción elegida porque las fuentes no ofrecen incrementales y queremo
 
 ## Decisión
 
-Full download en cada corrida, Bronze append-only. La deduplicación se hace por hash del archivo completo a nivel de corrida. Si el hash ya fue cargado, la corrida se marca como skipped para esa fuente sin insertar filas duplicadas.
+Full download en cada corrida, Bronze append-only. La deduplicacion se hace por hash del archivo completo a nivel de fuente. Si el hash ya fue cargado, esa fuente se saltea y no se insertan filas duplicadas en Bronze.
 
-Silver y Gold se reconstruyen idempotentemente desde Bronze en cada corrida válida (dbt maneja esto con `--full-refresh` o la estrategia de cada modelo).
+Silver, Gold y Semantic se reconstruyen de forma idempotente desde Bronze con `dbt build`. En este proyecto los modelos Silver/Gold estan materializados como tablas y las vistas Semantic se recrean desde esas tablas, por lo que volver a correr dbt deja el mismo resultado para la misma entrada.
 
-Para backfill: el script `scripts/backfill.sh` permite forzar una corrida marcando una fecha específica. En la práctica, como las fuentes son CSV estáticos, el backfill es principalmente útil para reprocesar Silver/Gold si los modelos dbt cambian.
+Para backfill/reproceso: el script `scripts/backfill.sh` recibe una fecha o rango como intencion operativa, descarga nuevamente los CSV publicos disponibles y reconstruye los modelos downstream para todos los periodos presentes en la fuente. No es un backfill particionado fino, porque la fuente publica no expone un endpoint incremental confiable por fecha.
 
 ## Consecuencias
 
@@ -51,6 +51,7 @@ Para backfill: el script `scripts/backfill.sh` permite forzar una corrida marcan
 - Bronze crece con el tiempo — para este alcance académico no es problema
 - No hay CDC ni detección de cambios a nivel fila — aceptable dado que la fuente no lo ofrece
 - El hash se calcula sobre el archivo completo, no por fila, lo que es rápido pero no detecta cambios parciales dentro de un mismo archivo descargado en el mismo día
+- El reproceso por fecha queda documentado como reconstruccion batch de downstream, no como particionamiento real por dia/mes
 
 ## Qué queda fuera
 

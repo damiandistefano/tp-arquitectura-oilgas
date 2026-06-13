@@ -2,6 +2,13 @@ version: 2
 
 models:
   - name: fact_produccion_pozo
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      grain: "pozo-periodo mensual"
+      consumers: ["semantic.vw_produccion_mensual", "semantic.vw_produccion_por_operadora", "semantic.vw_produccion_por_area", "Metabase"]
     description: "Tabla de hechos con una fila por registro de producción de pozo y período."
     columns:
       - name: produccion_id
@@ -31,6 +38,13 @@ models:
           - not_null
 
   - name: dim_pozo
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
     description: "Dimensión de pozos."
     columns:
       - name: pozo_id
@@ -44,6 +58,13 @@ models:
           - not_null
 
   - name: dim_fecha
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "no aplica"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
     description: "Dimensión de tiempo a nivel mensual."
     columns:
       - name: fecha_mes
@@ -53,6 +74,13 @@ models:
           - unique
 
   - name: dim_operadora
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
     description: "Dimensión de operadoras."
     columns:
       - name: operadora_id
@@ -66,6 +94,13 @@ models:
           - not_null
 
   - name: dim_area
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.vw_produccion_por_area", "Metabase"]
     description: "Dimensión de áreas."
     columns:
       - name: area_id
@@ -75,6 +110,13 @@ models:
           - unique
 
   - name: dim_yacimiento
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.vw_produccion_por_area", "Metabase"]
     description: "Dimensión de yacimientos."
     columns:
       - name: yacimiento_id
