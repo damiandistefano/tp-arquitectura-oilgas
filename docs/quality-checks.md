@@ -96,6 +96,6 @@ El script se ejecuta con:
     bash scripts/run-quality-checks.sh
 
 Si falla un check crítico, el script termina con exit code distinto de cero.
-Esto permite que un orquestador como Airflow marque la tarea como fallida.
+Esto permite que un orquestador como Dagster marque la tarea como fallida.
 
 Si solo hay warnings, los resultados quedan persistidos pero la ejecución puede continuar.
