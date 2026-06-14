@@ -30,7 +30,7 @@ Great Expectations es más completo para calidad de datos. Lo descartamos para e
 
 La opción elegida fue hacer checks simples en Python y persistir los resultados en PostgreSQL.
 
-No es la solución más sofisticada, pero es clara, corre localmente y se puede enganchar desde un orquestador como Airflow.
+No es la solución más sofisticada, pero es clara, corre localmente y se puede enganchar desde un orquestador como Dagster.
 
 ## Decisión
 
@@ -73,7 +73,7 @@ Check no crítico:
 
 Si falla un check con severidad `CRITICAL`, el script termina con exit code distinto de cero.
 
-Eso permite que Airflow u otro orquestador marque la tarea como fallida. La idea es que una corrida con errores críticos no quede promovida como válida.
+Eso permite que Dagster u otro orquestador marque la tarea como fallida. La idea es que una corrida con errores críticos no quede promovida como válida.
 
 Si solo hay `WARNING`, la ejecución puede seguir, pero el problema queda registrado.
 

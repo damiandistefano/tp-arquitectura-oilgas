@@ -147,9 +147,9 @@ docker compose exec -T postgres psql -U dwh -d warehouse -c "
 
 ```bash
 docker compose exec -T postgres psql -U dwh -d warehouse -c "
-  select source_name, row_count, file_hash, loaded_at
+  select source_name, rows_loaded, source_file_hash, ingested_at
   from metadata.source_files
-  order by loaded_at desc;
+  order by ingested_at desc;
 "
 ```
 
