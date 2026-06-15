@@ -51,13 +51,13 @@ DataHub no se integra al `docker-compose.yml` principal porque su stack es pesad
 - `metadata`
 - `semantic`
 
-La UI queda expuesta en el puerto `9002`. El procedimiento esta documentado en [docs/runbooks/datahub.md](../runbooks/datahub.md).
+La UI queda expuesta en el puerto `9002`. El procedimiento esta documentado en [docs/runbooks/datahub.md](../runbooks/datahub.md). La IP publica vigente de la entrega figura en las URLs oficiales del [README](../../README.md).
 
 ## Consecuencias
 
 La entrega gana un catalogo navegable de los datasets del warehouse y una forma concreta de explicar discovery, metadata y governance.
 
-El costo es operativo: DataHub requiere una instancia mas grande que el sandbox de la API y debe prenderse solo para validar o mostrar la demo. La ingesta de metadata es manual: cuando cambia el warehouse, se vuelve a correr `datahub ingest -c datahub/recipe.postgres.yml`.
+El costo es operativo: DataHub requiere una instancia mas grande que el sandbox de la API. Para la entrega se mantiene encendida durante la ventana de correccion; fuera de esa ventana se apaga para no gastar creditos. La ingesta de metadata es manual: cuando cambia el warehouse, se vuelve a correr `datahub ingest -c datahub/recipe.postgres.yml`.
 
 ## Que queda fuera
 

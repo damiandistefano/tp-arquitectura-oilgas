@@ -13,28 +13,33 @@ La entrega sigue siendo un sandbox academico. No se presenta como una plataforma
 
 ## URLs oficiales de entrega
 
-Reemplazar `<ip-o-dominio>` por la IP publica o dominio vigente el dia de la entrega.
+IPs vigentes de la entrega (instancias activas durante la correccion):
+
+- Sandbox API + monitoreo: `16.59.211.99`
+- DataHub (gobierno de datos): `3.143.210.125`
+
+Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `docker compose up` (ver mas abajo). El resto de las URLs son publicas.
 
 ### Fase 1
 
 | Servicio | URL | Credenciales / notas |
 |---|---|---|
-| API | `http://<ip-o-dominio>:8000` | - |
-| Swagger / OpenAPI UI | `http://<ip-o-dominio>:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
-| OpenAPI JSON | `http://<ip-o-dominio>:8000/openapi.json` | - |
-| Grafana | `http://<ip-o-dominio>:3000` | `admin` / `admin` |
-| Prometheus | `http://<ip-o-dominio>:9090` | - |
-| Alertmanager | `http://<ip-o-dominio>:9093` | Slack real solo si se configura webhook valido |
+| API | `http://16.59.211.99:8000` | - |
+| Swagger / OpenAPI UI | `http://16.59.211.99:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
+| OpenAPI JSON | `http://16.59.211.99:8000/openapi.json` | - |
+| Grafana | `http://16.59.211.99:3000` | `admin` / `admin` |
+| Prometheus | `http://16.59.211.99:9090` | - |
+| Alertmanager | `http://16.59.211.99:9093` | Slack real solo si se configura webhook valido |
 
 ### Fase 2
 
 | Servicio | URL | Estado de entrega |
 |---|---|---|
 | PostgreSQL warehouse | `localhost:5433` desde host / `postgres:5432` desde contenedores | Implementado en `docker-compose.yml` |
-| Dagster | `http://<ip-o-dominio>:3002` | Orquestador del pipeline de datos, definido en `dagster/dwh_pipeline/` |
-| Metabase | `http://<ip-o-dominio>:3001` | BI sobre vistas `semantic.*`; usuario Metabase `martinbianchi@udesa.edu.ar` / `Admin1234!` |
+| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos (`dagster/dwh_pipeline/`). Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
+| Metabase | `http://localhost:3001` (local) | BI sobre vistas `semantic.*`; usuario `martinbianchi@udesa.edu.ar` / `Admin1234!`. Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
 | dbt Docs | local, generado con `dbt docs generate` | Evidencia de modelos, tests y lineage de dbt |
-| DataHub | `http://<ip-datahub>:9002` | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
+| DataHub | `http://3.143.210.125:9002` | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
 
 DataHub no aparece en el `docker-compose.yml` principal de este repo porque su quickstart es pesado. Se opera como stack externo en una EC2 dedicada y on-demand. Ver [docs/runbooks/datahub.md](docs/runbooks/datahub.md).
 

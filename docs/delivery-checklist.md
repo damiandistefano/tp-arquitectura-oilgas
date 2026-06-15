@@ -31,15 +31,15 @@ Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su qu
 
 ## 1.1 Instancias e IPs para la demo
 
-Completar el dia de la entrega con las IPs vigentes. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
+IPs vigentes de la entrega (instancias activas durante la correccion). No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
 
-| Instancia | Uso | Tamaño esperado | URL/IP a validar | Responsable |
-|---|---|---|---|---|
-| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `t3.micro` para API sola; `t3.small`/`t3.medium` si se muestra monitoreo completo | `http://<ip-o-dominio>` | Equipo / I1 |
-| Sandbox datos | Postgres, Dagster, Metabase, dbt local/containers | `t3.medium` o `t3.large` si se levanta todo junto para demo | `http://<ip-o-dominio>:3001` y `:3002` | I1 + I2 |
-| DataHub | Catalogo/governance | `t3.large` dedicada, on-demand | `http://<ip-datahub>:9002` | I3 |
+| Instancia | Uso | URL/IP a validar | Responsable |
+|---|---|---|---|
+| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://16.59.211.99` (`:8000` `:3000` `:9090` `:9093`) | Equipo / I1 |
+| DataHub | Catalogo/governance | `http://3.143.210.125:9002` | I3 |
+| Stack de datos (local) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | I1 + I2 |
 
-Criterio: si una instancia `large` solo corre API/monitoreo, conviene bajarla. Si corre DataHub o todo el stack de datos en una sola maquina, `large` es defendible para una demo corta, siempre apagandola al terminar.
+Dagster y Metabase no se exponen en el sandbox: se levantan localmente con `docker compose up`. El profe puede correrlos en su maquina con las instrucciones del README, o verlos en la demo en vivo.
 
 ---
 
@@ -189,8 +189,8 @@ Validar en la EC2 dedicada antes de grabar o mostrar la demo:
 
 | Dato | Valor |
 |---|---|
-| URL final | `http://<ip-datahub>:9002` |
-| Como se levanta | `datahub docker quickstart` en EC2 dedicada |
+| URL final | `http://3.143.210.125:9002` |
+| Como se levanta | EC2 dedicada. Por disco acotado el CLI `datahub docker quickstart` no entra; se levanta el compose cacheado: `cd ~/.datahub/quickstart && COMPOSE_PROFILES=quickstart DATAHUB_VERSION=v1.5.0.6 docker compose -p datahub -f docker-compose.yml --env-file .local-secrets.env up -d --pull never` |
 | Credenciales | `datahub` / `datahub` |
 | Ingesta | `datahub ingest -c datahub/recipe.postgres.yml` |
 | Datasets visibles | `bronze`, `silver`, `gold`, `quality`, `metadata`, `semantic` |
