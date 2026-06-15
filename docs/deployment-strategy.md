@@ -27,6 +27,8 @@ commit -> build -> imagen Docker -> deploy
 
 Para despliegues reproducibles se recomienda usar el commit SHA, no `latest`.
 
+La imagen de la API usa `python:3.11-alpine` para reducir peso del artefacto y consumo de disco/red en el sandbox. Las dependencias nativas se instalan durante el build y se eliminan antes de publicar la imagen final.
+
 ---
 
 ## OpenAPI / Swagger accesible públicamente

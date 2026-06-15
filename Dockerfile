@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 WORKDIR /app
 
@@ -7,12 +7,16 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apk add --no-cache libpq \
+    && apk add --no-cache --virtual .build-deps gcc musl-dev postgresql-dev \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apk del .build-deps
 
 COPY app ./app
 
-RUN adduser --disabled-password --gecos "" appuser \
-    && chown -R appuser:appuser /app
+RUN addgroup -S app \
+    && adduser -S -G app appuser \
+    && chown -R appuser:app /app
 
 USER appuser
 
