@@ -1,0 +1,37 @@
+# Receta de ingesta de DataHub - warehouse PostgreSQL (Adenda 2)
+#
+# Ingiere metadata tecnica del warehouse medallion hacia DataHub:
+# schemas, tablas, vistas, columnas y tipos.
+#
+# Se ejecuta desde la EC2 dedicada, donde el warehouse y DataHub corren en el mismo host:
+#
+#   datahub ingest -c datahub/recipe.postgres.yml
+#
+# Las credenciales son las del sandbox academico del repo. No son credenciales productivas.
+
+source:
+  type: postgres
+  config:
+    host_port: "localhost:5433"
+    database: warehouse
+    username: dwh
+    password: dwh
+
+    schema_pattern:
+      allow:
+        - "bronze"
+        - "silver"
+        - "gold"
+        - "quality"
+        - "metadata"
+        - "semantic"
+
+    include_views: true
+
+    profiling:
+      enabled: false
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

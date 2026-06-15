@@ -1,4 +1,71 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: warehouse-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-dwh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dwh}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dwh} -d ${POSTGRES_DB:-warehouse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  dagster:
+    build: ./dagster
+    container_name: dagster
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-dwh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dwh}
+      PRODUCCION_SOURCE_URL: ${PRODUCCION_SOURCE_URL:-http://datos.energia.gob.ar/dataset/c846e79c-026c-4040-897f-1ad3543b407c/resource/b5b58cdc-9e07-41f9-b392-fb9ec68b0725/download/produccin-de-pozos-de-gas-y-petrleo-no-convencional.csv}
+      POZOS_SOURCE_URL: ${POZOS_SOURCE_URL:-http://datos.energia.gob.ar/dataset/c846e79c-026c-4040-897f-1ad3543b407c/resource/cbfa4d79-ffb3-4096-bab5-eb0dde9a8385/download/listado-de-pozos-cargados-por-empresas-operadoras.csv}
+      DATA_PIPELINE_RETRIES: ${DATA_PIPELINE_RETRIES:-3}
+      DATA_PIPELINE_RETRY_BACKOFF_SECONDS: ${DATA_PIPELINE_RETRY_BACKOFF_SECONDS:-30}
+    volumes:
+      - ./extract:/workspace/extract:ro
+      - ./dbt:/workspace/dbt:ro
+      - ./quality:/workspace/quality:ro
+      - ./dagster/dwh_pipeline:/workspace/dwh_pipeline:ro
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "3001:3000"
+    environment:
+      MB_SITE_NAME: "Oil & Gas Analytics"
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build: .
     ports:
@@ -58,3 +125,5 @@ networks:
 
 volumes:
   grafana-data:
+  postgres-data:
+  metabase-data:

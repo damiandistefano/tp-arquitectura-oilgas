@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: warehouse
+    schema: bronze
+    meta:
+      owner: "I1 - Ingesta y orquestacion"
+      team: "Oil & Gas TP"
+      layer: "bronze"
+      sensitivity: "publica"
+      update_frequency: "batch bajo demanda"
+      consumers: ["dbt staging", "DataHub", "dbt Docs"]
+    tables:
+      - name: raw_produccion_no_convencional
+        meta:
+          source_system: "datos.gob.ar"
+          contains_raw_payload: true
+        description: Datos crudos de producción no convencional cargados en Bronze.
+      - name: raw_pozos_operadoras
+        meta:
+          source_system: "datos.gob.ar"
+          contains_raw_payload: true
+        description: Datos crudos de pozos y operadoras cargados en Bronze.

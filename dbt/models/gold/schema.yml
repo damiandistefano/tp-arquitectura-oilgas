@@ -1,0 +1,128 @@
+version: 2
+
+models:
+  - name: fact_produccion_pozo
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      grain: "pozo-periodo mensual"
+      consumers: ["semantic.vw_produccion_mensual", "semantic.vw_produccion_por_operadora", "semantic.vw_produccion_por_area", "Metabase"]
+    description: "Tabla de hechos con una fila por registro de producción de pozo y período."
+    columns:
+      - name: produccion_id
+        description: "Identificador surrogate del registro de producción."
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: warn
+      - name: pozo_id
+        description: "Clave surrogate del pozo."
+        tests:
+          - not_null
+      - name: fecha_mes
+        description: "Mes de producción."
+        tests:
+          - not_null
+      - name: operadora_id
+        description: "Clave surrogate de la operadora."
+        tests:
+          - not_null
+      - name: _run_id
+        description: "Identificador de la corrida de ingesta que originó el dato."
+        tests:
+          - not_null
+      - name: _source_file_hash
+        description: "Hash del archivo fuente usado para trazabilidad."
+        tests:
+          - not_null
+
+  - name: dim_pozo
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
+    description: "Dimensión de pozos."
+    columns:
+      - name: pozo_id
+        description: "Clave surrogate del pozo."
+        tests:
+          - not_null
+          - unique
+      - name: idpozo
+        description: "Identificador original del pozo en la fuente."
+        tests:
+          - not_null
+
+  - name: dim_fecha
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "no aplica"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
+    description: "Dimensión de tiempo a nivel mensual."
+    columns:
+      - name: fecha_mes
+        description: "Primer día del mes usado como período analítico."
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_operadora
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.*", "Metabase"]
+    description: "Dimensión de operadoras."
+    columns:
+      - name: operadora_id
+        description: "Clave surrogate de la operadora."
+        tests:
+          - not_null
+          - unique
+      - name: idempresa
+        description: "Identificador original de la empresa operadora."
+        tests:
+          - not_null
+
+  - name: dim_area
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.vw_produccion_por_area", "Metabase"]
+    description: "Dimensión de áreas."
+    columns:
+      - name: area_id
+        description: "Clave surrogate del área."
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_yacimiento
+    meta:
+      owner: "I2 - Analytics Engineering"
+      team: "Oil & Gas TP"
+      layer: "gold"
+      sensitivity: "publica"
+      scd_type: "1"
+      consumers: ["gold.fact_produccion_pozo", "semantic.vw_produccion_por_area", "Metabase"]
+    description: "Dimensión de yacimientos."
+    columns:
+      - name: yacimiento_id
+        description: "Clave surrogate del yacimiento."
+        tests:
+          - not_null
+          - unique

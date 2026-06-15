@@ -1,51 +1,237 @@
 # tp-arquitectura-oilgas
 
-API REST mock para consulta de pronósticos de producción de pozos de petróleo/gas, con contenedores Docker, CI/CD, monitoreo técnico y despliegue en sandbox.
+Trabajo integrador de Ingenieria de Software para un sistema predictivo de produccion de hidrocarburos.
 
-El objetivo de esta Fase 1 es validar una base técnica de desarrollo ágil: API mock, contrato OpenAPI, Docker, pipeline de CI, artefacto Docker publicable, observabilidad y operación básica del sandbox.
+El repo cubre dos etapas:
+
+- Fase 1: API REST mock, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
+- Fase 2: integracion de datos con arquitectura Medallion, warehouse PostgreSQL, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
+
+La entrega sigue siendo un sandbox academico. No se presenta como una plataforma productiva con alta disponibilidad, gobierno enterprise o despliegue multiambiente completo.
 
 ---
 
-## Componentes
+## URLs oficiales de entrega
 
-| Componente | Qué hace |
+IPs vigentes de la entrega (instancias activas durante la correccion):
+
+- Sandbox API + monitoreo: `16.59.211.99`
+- DataHub (gobierno de datos): `3.143.210.125`
+
+Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `docker compose up` (ver mas abajo). El resto de las URLs son publicas.
+
+### Fase 1
+
+| Servicio | URL | Credenciales / notas |
+|---|---|---|
+| API | `http://16.59.211.99:8000` | - |
+| Swagger / OpenAPI UI | `http://16.59.211.99:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
+| OpenAPI JSON | `http://16.59.211.99:8000/openapi.json` | - |
+| Grafana | `http://16.59.211.99:3000` | `admin` / `admin` |
+| Prometheus | `http://16.59.211.99:9090` | - |
+| Alertmanager | `http://16.59.211.99:9093` | Slack real solo si se configura webhook valido |
+
+### Fase 2
+
+| Servicio | URL | Estado de entrega |
+|---|---|---|
+| PostgreSQL warehouse | `localhost:5433` desde host / `postgres:5432` desde contenedores | Implementado en `docker-compose.yml` |
+| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos (`dagster/dwh_pipeline/`). Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
+| Metabase | `http://localhost:3001` (local) | BI sobre vistas `semantic.*`; usuario `martinbianchi@udesa.edu.ar` / `Admin1234!`. Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
+| dbt Docs | local, generado con `dbt docs generate` | Evidencia de modelos, tests y lineage de dbt |
+| DataHub | `http://3.143.210.125:9002` | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
+
+DataHub no aparece en el `docker-compose.yml` principal de este repo porque su quickstart es pesado. Se opera como stack externo en una EC2 dedicada y on-demand. Ver [docs/runbooks/datahub.md](docs/runbooks/datahub.md).
+
+---
+
+## Arquitectura de Fase 2
+
+El pipeline de datos usa fuentes publicas de datos.gob.ar y procesa la informacion por capas:
+
+```text
+datos.gob.ar
+  -> bronze.raw_*
+  -> silver.*
+  -> gold.fact_produccion_pozo + dimensiones
+  -> quality.data_quality_results
+  -> semantic.vw_*
+  -> Metabase / dbt Docs / DataHub
+```
+
+### Componentes principales
+
+| Componente | Que hace |
 |---|---|
-| **API (FastAPI)** | Expone endpoints REST protegidos con API Key y documentación OpenAPI/Swagger. |
-| **Prometheus** | Scrapea métricas de la API y evalúa reglas de alerta. |
-| **Grafana** | Muestra dashboard técnico con requests, errores, latencia, disponibilidad y métricas de contenedores. |
-| **Alertmanager** | Recibe alertas de Prometheus y puede rutearlas a Slack mediante webhook. |
-| **cAdvisor** | Expone métricas de recursos de contenedores para Prometheus. |
-| **GHCR** | Registry donde se publica la imagen Docker de la API desde CI. |
+| PostgreSQL | Warehouse local/sandbox con schemas `bronze`, `silver`, `gold`, `quality`, `metadata` y `semantic`. |
+| Dagster | Orquesta ingesta, transformaciones dbt y checks de calidad como assets. |
+| extract/ | Descarga CSVs publicos, calcula hash y carga Bronze con metadata de corrida. |
+| dbt | Construye modelos Silver, Gold y vistas Semantic. |
+| quality/ | Ejecuta checks y persiste resultados en `quality.data_quality_results`. |
+| Metabase | Dashboard de negocio para usuarios no tecnicos. |
+| DataHub | Catalogo de metadata del warehouse, desplegado por fuera del Compose principal. |
+| Prometheus/Grafana/Alertmanager | Monitoreo tecnico de la API y servicios del stack. |
+
+### Fuentes de datos
+
+- Produccion de pozos de gas y petroleo no convencional.
+- Listado de pozos cargados por empresas operadoras.
+
+Las URLs estan en `.env.example` y `.env.sandbox.example`.
+
+### Estrategia de carga
+
+La carga es batch. Se descarga el CSV completo, se calcula hash de archivo y Bronze se mantiene append-only por corrida. Si el mismo hash ya fue cargado, la ingesta evita duplicar esa fuente.
+
+Esta decision esta documentada en [ADR 0007](docs/adr/0007-definir-estrategia-de-carga-y-backfill.md). No se implementa CDC real porque la fuente publica no expone un mecanismo incremental confiable.
+
+### Modelo Gold
+
+La fact table principal es `gold.fact_produccion_pozo`.
+
+Grano:
+
+- una fila por registro de produccion de un pozo en un periodo mensual.
+
+Dimensiones:
+
+- `gold.dim_fecha`
+- `gold.dim_pozo`
+- `gold.dim_operadora`
+- `gold.dim_area`
+- `gold.dim_yacimiento`
+
+Ver [docs/data-model.md](docs/data-model.md).
+
+### Calidad de datos
+
+Los checks quedan persistidos en `quality.data_quality_results`.
+
+Dimensiones cubiertas:
+
+- schema;
+- completeness;
+- uniqueness;
+- lineage / relationships;
+- freshness.
+
+Si falla un check `CRITICAL`, el comando de calidad termina con exit code distinto de cero. Los warnings quedan registrados para revision sin bloquear necesariamente la ejecucion.
+
+Ver [docs/quality-checks.md](docs/quality-checks.md).
+
+### BI y capa semantic
+
+Metabase consume vistas del schema `semantic`, no Bronze. Las vistas principales son:
+
+- `semantic.vw_produccion_mensual`
+- `semantic.vw_produccion_por_operadora`
+- `semantic.vw_produccion_por_area`
+- `semantic.vw_frescura_datos`
+
+El dashboard de BI se llama `Oil & Gas BI Dashboard`. Las tarjetas y consultas esperadas estan documentadas en [docs/runbooks/bi-user.md](docs/runbooks/bi-user.md).
 
 ---
 
-## API mock
+## Como levantar el stack local
 
-La API implementa los endpoints pedidos para la integración externa de pronósticos.
+Requisitos:
 
-### Autenticación
+- Docker Desktop o Docker Engine.
+- Docker Compose.
+- Python 3 y dependencias del proyecto si se ejecutan comandos fuera de contenedores.
+- Acceso a internet para descargar los CSVs publicos.
 
-Todos los endpoints funcionales requieren el header:
+Desde la raiz del repo:
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+```
+
+Servicios locales:
+
+| URL | Que es | Credenciales / notas |
+|---|---|---|
+| `http://localhost:8000/docs` | Swagger de la API | Header `X-API-Key: abcdef12345` |
+| `http://localhost:8000/metrics` | Metric endpoint | - |
+| `http://localhost:9090` | Prometheus | - |
+| `http://localhost:3000` | Grafana | `admin` / `admin` |
+| `http://localhost:9093` | Alertmanager | - |
+| `http://localhost:8080` | cAdvisor | - |
+| `http://localhost:3001` | Metabase | `martinbianchi@udesa.edu.ar` / `Admin1234!` |
+| `http://localhost:3002` | Dagster | UI de assets del pipeline |
+
+Para bajar el stack:
+
+```bash
+docker compose down
+```
+
+---
+
+## Ejecucion del pipeline de datos
+
+### Opcion 1: Dagster UI
+
+1. Levantar el stack con `docker compose up --build -d`.
+2. Entrar a `http://localhost:3002`.
+3. Materializar los assets:
+   - `extract_to_bronze`
+   - `run_silver_transformations`
+   - `run_quality_checks`
+4. Revisar logs y estado de cada asset.
+
+### Opcion 2: comandos manuales
+
+Cargar Bronze:
+
+```bash
+python -m extract.load_to_bronze
+```
+
+Construir modelos dbt:
+
+```bash
+cd dbt
+dbt debug
+dbt build
+dbt docs generate
+cd ..
+```
+
+Ejecutar quality gate:
+
+```bash
+python -m quality.checks
+```
+
+Validar BI:
+
+```bash
+bash scripts/metabase-smoke.sh
+```
+
+En Windows, los scripts Bash requieren Git Bash, WSL o un entorno compatible. Si se ejecuta desde PowerShell, setear variables con `$env:NOMBRE='valor'`.
+
+---
+
+## API mock de Fase 1
+
+Todos los endpoints funcionales requieren:
 
 ```http
 X-API-Key: abcdef12345
 ```
 
-Si la API Key falta o es incorrecta, la API devuelve:
+Endpoints principales:
 
-```http
-403 Forbidden
-```
-
-### Endpoints principales
-
-| Método | Endpoint | Descripción |
+| Metodo | Endpoint | Descripcion |
 |---|---|---|
 | `GET` | `/api/v1/wells?date_query=YYYY-MM-DD` | Devuelve pozos activos para la fecha consultada. |
-| `GET` | `/api/v1/forecast?id_well=POZO-001&date_start=YYYY-MM-DD&date_end=YYYY-MM-DD` | Devuelve un pronóstico mock diario para el pozo y rango indicado. |
+| `GET` | `/api/v1/forecast?id_well=POZO-001&date_start=YYYY-MM-DD&date_end=YYYY-MM-DD` | Devuelve un pronostico mock diario para el pozo y rango indicado. |
 | `GET` | `/health` | Health check del servicio. |
-| `GET` | `/metrics` | Métricas Prometheus. |
-| `GET` | `/docs` | Documentación Swagger/OpenAPI. |
+| `GET` | `/metrics` | Metricas Prometheus. |
+| `GET` | `/docs` | Swagger/OpenAPI. |
 
 Ejemplos:
 
@@ -57,71 +243,11 @@ curl -H "X-API-Key: abcdef12345" \
   "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
 ```
 
-La respuesta de `/api/v1/forecast` usa datos mock determinísticos. Esto permite repetir pruebas y comparar resultados sin depender de un modelo predictivo real, que queda fuera del alcance de la Fase 1.
+La API usa datos mock deterministas. El modelo predictivo real queda fuera de Fase 1.
 
 ---
 
-## Cómo levantar el stack local
-
-Requisitos:
-
-- Docker Desktop o Docker Engine.
-- Docker Compose.
-
-Desde la raíz del repo:
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Servicios locales:
-
-| URL | Qué es | Credenciales |
-|---|---|---|
-| http://localhost:8000/docs | Swagger de la API | Header `X-API-Key: abcdef12345` |
-| http://localhost:8000/metrics | Métricas Prometheus | — |
-| http://localhost:9090 | Prometheus | — |
-| http://localhost:3000 | Grafana | `admin` / `admin` |
-| http://localhost:9093 | Alertmanager | — |
-| http://localhost:8080 | cAdvisor | — |
-
-Para generar tráfico y poblar el dashboard:
-
-```bash
-bash scripts/generate_traffic.sh
-```
-
-Para bajar el stack:
-
-```bash
-docker compose down
-```
-
----
-
-## Alertas
-
-Las reglas de alerta están definidas en `prometheus/rules/alerts.yml`.
-
-Alertas principales:
-
-- `APIDown`: la API no responde.
-- `HighErrorRate`: tasa alta de errores 5xx.
-- `HighLatency`: latencia P95 por encima del umbral definido.
-- `APIRecovered`: la API vuelve a estar disponible luego de una caída.
-
-Alertmanager puede enviar alertas a Slack si se configura un webhook real en `.env`:
-
-```env
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-```
-
-En sandbox se puede usar un valor dummy para validar que Alertmanager levante sin exponer credenciales reales. En ese caso, las alertas se ven en Prometheus/Alertmanager pero no llegan a Slack.
-
----
-
-## Tests y validaciones locales
+## Tests y validaciones
 
 Instalar dependencias de desarrollo:
 
@@ -129,165 +255,158 @@ Instalar dependencias de desarrollo:
 pip install -r requirements-dev.txt
 ```
 
-Correr análisis estático y tests:
+Correr analisis estatico y tests:
 
 ```bash
 ruff check .
 pytest -q
 ```
 
-Validar scripts y Docker Compose:
+Validar Compose:
 
 ```bash
-bash -n scripts/deploy.sh
-bash -n scripts/rollback.sh
-bash -n scripts/sandbox-smoke.sh
-bash -n scripts/generate_traffic.sh
-bash -n scripts/initial_setup.sh
-
 docker compose config
-docker compose build api
+IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
 ```
+
+Validaciones manuales recomendadas antes de entregar:
+
+- Dagster abre en `:3002`, muestra assets y una corrida exitosa.
+- Metabase abre en `:3001`, conectado al warehouse, con dashboard y tarjetas con datos.
+- dbt Docs genera y muestra lineage/modelos/tests.
+- `quality.data_quality_results` tiene resultados recientes.
+- GitHub Actions esta verde en el commit final.
+- GHCR tiene la imagen esperada si se usa deploy desde registry.
+- El workflow manual `AWS Smoke Test` o `scripts/sandbox-smoke.sh` valida la EC2 si se muestra el sandbox.
+- DataHub muestra datasets del warehouse y metadata tecnica en la EC2 dedicada.
+
+Ver [docs/delivery-checklist.md](docs/delivery-checklist.md).
 
 ---
 
 ## CI/CD
 
-El pipeline de GitHub Actions ejecuta:
+GitHub Actions ejecuta validaciones de Fase 1 y controles generales:
 
-- instalación de dependencias;
-- análisis estático con Ruff;
-- tests automatizados con Pytest;
-- validación de OpenAPI;
-- validación de endpoints protegidos por API Key;
+- instalacion de dependencias;
+- Ruff;
+- Pytest;
+- validacion de OpenAPI;
+- contrato de endpoints protegidos;
 - build de imagen Docker;
-- escaneo de vulnerabilidades con Trivy;
-- smoke test del contenedor;
-- validación de scripts;
-- validación de `docker-compose.yml` y `docker-compose.deploy.yml`;
-- chequeo de archivos sensibles trackeados;
-- smoke test del stack completo;
-- validación de métricas, targets y reglas de Prometheus.
+- Trivy;
+- smoke test de contenedor;
+- validacion de scripts;
+- validacion de Compose;
+- chequeo de archivos sensibles;
+- smoke test del stack tecnico;
+- validacion de metricas, targets y reglas de Prometheus.
 
-En `main`, el pipeline publica la imagen de la API en GitHub Container Registry (GHCR) con tags:
+En `main`, el pipeline publica imagen de la API en GHCR con tags:
 
 - `latest`;
 - commit SHA.
+
+Los checks de datos completos requieren warehouse y fuentes externas, por eso tambien se validan manualmente con el checklist de entrega.
+
+Para validar una EC2 ya desplegada desde GitHub, existe el workflow manual `AWS Smoke Test`. Recibe la base URL publica y revisa API, metricas, endpoints protegidos, Grafana, Prometheus y Alertmanager.
 
 ---
 
 ## Deploy a EC2 sandbox
 
-La estrategia de deploy está documentada en:
+La estrategia de deploy esta documentada en:
 
 - [docs/deployment-strategy.md](docs/deployment-strategy.md)
 - [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md)
 - [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md)
 
-El flujo recomendado de release usa la imagen publicada en GHCR y `docker-compose.deploy.yml`:
+Deploy:
 
 ```bash
 IMAGE_TAG=<commit_sha> ./scripts/deploy.sh
 ```
 
-Para rollback:
+Rollback:
 
 ```bash
 ./scripts/rollback.sh <commit_sha_anterior>
 ```
 
-También existe `scripts/initial_setup.sh`, que queda como script de bootstrap inicial de EC2. No es el flujo principal de release.
-
----
-
-## Smoke test del sandbox
-
-Desde una máquina local:
+Smoke test del sandbox:
 
 ```bash
 bash scripts/sandbox-smoke.sh <EC2_PUBLIC_IP>
-```
-
-También acepta URL completa:
-
-```bash
-bash scripts/sandbox-smoke.sh http://<EC2_PUBLIC_IP>
-```
-
-El script valida API, endpoints protegidos, métricas, Prometheus, reglas de alerta, Alertmanager y Grafana.
-
-Además existe un workflow manual:
-
-```text
-GitHub Actions → AWS Smoke Test → Run workflow
-```
-
-Recibe `base_url`, por ejemplo:
-
-```text
-http://52.15.50.130
 ```
 
 ---
 
 ## Decisiones de arquitectura
 
-Las decisiones principales están documentadas como ADRs en `docs/adr/`:
+Las decisiones estan en [docs/adr/](docs/adr/).
 
-- Docker Compose para el stack local.
+Fase 1:
+
+- Docker Compose para stack local.
 - GitHub Actions para CI.
-- GHCR para publicación de imágenes.
-- Prometheus, Grafana, Alertmanager y cAdvisor para monitoreo.
-- Trivy para escaneo de vulnerabilidades de imágenes Docker.
+- GHCR para imagenes.
+- Prometheus, Grafana, Alertmanager y cAdvisor.
+- Trivy para escaneo de vulnerabilidades.
+
+Fase 2:
+
+- Dagster como orquestador.
+- Full download + Bronze append-only con hash.
+- PostgreSQL como warehouse local/sandbox.
+- Arquitectura Medallion.
+- Modelo estrella en Gold.
+- Calidad persistida.
+- Vistas SQL como semantic layer.
+- DataHub como catalogo de gobierno de datos.
 
 ---
 
-## Alcance y limitaciones de Fase 1
+## Alcance y limitaciones
 
-Implementado en esta fase:
+Implementado:
 
 - API REST mock.
-- Autenticación básica por API Key.
-- Swagger/OpenAPI online.
-- Dockerización.
-- CI con tests, linting, build, scan y smoke tests.
-- Imagen Docker publicable en GHCR.
-- Sandbox AWS EC2.
-- Monitoreo con Prometheus/Grafana/Alertmanager/cAdvisor.
-- Runbooks de operación.
-- Rollback por tag/SHA.
+- Dockerizacion.
+- CI/CD y GHCR para API.
+- Monitoreo tecnico.
+- Ingesta real desde datos.gob.ar.
+- Bronze/Silver/Gold/Semantic.
+- Dagster para orquestacion.
+- Quality checks persistidos.
+- Metabase para BI.
+- DataHub como catalogo externo de metadata.
+- ADRs, runbooks y checklist de entrega.
 
-Fuera de alcance para esta fase:
+Limitaciones asumidas:
 
-- modelo predictivo real;
-- ingesta real de datos;
-- base de datos productiva;
-- separación completa dev/staging/prod;
-- canary, blue-green o rolling deployment real;
-- Kubernetes;
-- performance testing formal con Locust;
-- envío real de alertas si no se configura webhook real;
-- logs centralizados y tracing distribuido.
-
-Estas decisiones se tomaron porque la Fase 1 busca validar arquitectura base, integración, observabilidad y operación mínima de un mock técnico, evitando sobrediseñar infraestructura antes de tener usuarios productivos reales.
+- No hay modelo predictivo real.
+- No hay CDC real desde las fuentes publicas.
+- No hay alta disponibilidad ni Kubernetes.
+- No hay multiambiente completo dev/staging/prod.
+- No hay gobierno enterprise: DataHub se usa como catalogo academico, no como plataforma productiva con SSO/RBAC/HA.
+- Dashboard de Metabase se configura desde UI, no se provisiona automaticamente como codigo.
 
 ---
 
-## Flujo de trabajo del equipo
+## Flujo de trabajo
 
-El repositorio usa GitFlow simplificado:
+El repo usa GitFlow simplificado:
 
 ```text
 feature/* -> develop -> main
 ```
 
-Reglas principales:
+Reglas:
 
 - no commitear directo a `main`;
-- trabajar en ramas `feature/*`;
 - integrar por Pull Request;
 - mantener CI en verde;
-- actualizar documentación cuando cambia el uso o la operación del sistema;
-- no commitear `.env`, `.pem`, tokens, claves privadas ni credenciales.
+- actualizar documentacion junto con cambios de comportamiento;
+- no commitear `.env`, `.pem`, tokens, claves privadas, dumps, caches ni outputs generados.
 
-Ver [CONTRIBUTING.md](CONTRIBUTING.md) para el detalle del flujo.
+Ver [CONTRIBUTING.md](CONTRIBUTING.md).
