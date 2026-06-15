@@ -336,7 +336,7 @@ Rollback:
 Smoke test del sandbox:
 
 ```bash
-bash scripts/sandbox-smoke.sh <EC2_PUBLIC_IP>
+bash scripts/sandbox-smoke.sh 16.59.211.99
 ```
 
 ---

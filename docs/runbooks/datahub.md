@@ -51,10 +51,10 @@ Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en 
 3. Conectarse por SSH con la llave correspondiente, sin commitear la llave al repo.
 
 ```bash
-ssh -i datahub-oilgas.pem ubuntu@<IP_PUBLICA>
+ssh -i datahub-oilgas.pem ubuntu@3.143.210.125
 ```
 
-Si la instancia se apago y prendio, la IP publica puede haber cambiado.
+IP publica vigente de la entrega: `3.143.210.125` (instancia mantenida encendida durante la correccion). Si en el futuro se apaga y prende sin Elastic IP, la IP publica puede cambiar; en ese caso actualizar este runbook y el README.
 
 ---
 
@@ -112,25 +112,35 @@ docker compose exec -T postgres psql -U dwh -d warehouse -c "\dv semantic.*"
 
 ## 7. Levantar DataHub
 
-Activar el venv donde esta instalado `acryl-datahub` y levantar el quickstart:
+El metodo normal es `datahub docker quickstart`, pero en esta EC2 el disco es acotado (28 GB) y el CLI aborta porque exige 13 GB libres ("Total Docker disk space available ... below the minimum threshold 13GB"). El flag `--no-pull-images` no saltea ese chequeo.
+
+Como las imagenes de DataHub ya estan bajadas, se levanta el compose cacheado del quickstart directamente (saltea el chequeo de disco del CLI):
 
 ```bash
-source ~/datahub-venv/bin/activate
-datahub docker quickstart
+cd ~/.datahub/quickstart
+COMPOSE_PROFILES=quickstart DATAHUB_VERSION=v1.5.0.6 \
+  docker compose -p datahub -f docker-compose.yml --env-file .local-secrets.env up -d --pull never
 ```
 
-Validar:
+Si Elasticsearch/OpenSearch no arranca, ajustar el kernel antes: `sudo sysctl -w vm.max_map_count=262144`.
+
+Validar (desde dentro de la EC2):
 
 ```bash
-datahub docker check
 curl -f http://localhost:9002/admin
 curl -f http://localhost:8080/health
+```
+
+Para que DataHub sobreviva reinicios de la instancia, dejar los contenedores con restart automatico:
+
+```bash
+docker update --restart unless-stopped $(docker ps --filter "name=datahub-" -q) warehouse-postgres
 ```
 
 La UI queda en:
 
 ```text
-http://<IP_PUBLICA>:9002
+http://3.143.210.125:9002
 ```
 
 Credenciales por defecto:
@@ -164,7 +174,7 @@ Si la ingesta devuelve 0 tablas:
 
 ## 9. Validacion UI para la entrega
 
-En `http://<IP_PUBLICA>:9002`:
+En `http://3.143.210.125:9002`:
 
 1. Login con `datahub` / `datahub`.
 2. Buscar `produccion`.
@@ -186,13 +196,15 @@ Evidencia minima para la defensa:
 
 ## 10. Apagar para no gastar creditos
 
-Al terminar la validacion o la demo:
+Para la entrega la instancia se mantiene **encendida** durante toda la ventana de correccion, asi el profe puede abrir `http://3.143.210.125:9002` cuando quiera.
+
+Una vez terminada la correccion, apagar para no gastar creditos:
 
 ```bash
 # desde AWS Console: Instance state -> Stop instance
 ```
 
-No terminar la instancia si se quiere conservar los volumenes y el catalogo para la presentacion.
+No terminar la instancia si se quiere conservar los volumenes y el catalogo para la presentacion. Con `restart: unless-stopped` (paso 7) DataHub se vuelve a levantar solo cuando se prende de nuevo.
 
 ---
 
