@@ -29,7 +29,7 @@ Este runbook sirve para validar que el sandbox de Fase 1 sigue operativo y que l
 | API — Health | `http://16.59.211.99:8000/health` | — |
 | API — Metrics | `http://16.59.211.99:8000/metrics` | — |
 | Prometheus | `http://16.59.211.99:9090` | — |
-| Grafana | `http://16.59.211.99:3000` | `admin` / `admin` |
+| Grafana | `http://16.59.211.99:3000` | `admin` / `pKNF9UsS4mzDtnA` |
 | Alertmanager | `http://16.59.211.99:9093` | — |
 | cAdvisor | `http://16.59.211.99:8080` | — |
 
@@ -91,7 +91,7 @@ Completar tras el smoke test para dejar evidencia de entrega.
 
 ### Grafana
 
-- [ ] Login con `admin` / `admin` funciona.
+- [ ] Login con `admin` / `pKNF9UsS4mzDtnA` funciona.
 - [ ] Datasource Prometheus está OK.
 - [ ] Dashboard `Oil & Gas API Dashboard` muestra paneles con datos.
 
@@ -195,15 +195,15 @@ Completar antes de entregar:
 
 ---
 
-## 9. Release tag sugerido
+## 9. Release tag de Adenda 2
 
 Una vez que `develop` esté mergeado a `main` y CI esté verde:
 
 ```bash
 git checkout main
 git pull origin main
-git tag v0.1.0
-git push origin v0.1.0
+git tag -a v0.2.0 -m "Phase 2 Delivery - v0.2.0"
+git push origin v0.2.0
 ```
 
 Crear release en GitHub con un changelog breve y link a este runbook.

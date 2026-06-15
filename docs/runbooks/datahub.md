@@ -80,7 +80,8 @@ Esperado:
 Desde el repo clonado en la EC2:
 
 ```bash
-git checkout develop
+git fetch --tags
+git checkout v0.2.0
 cp .env.example .env
 docker compose up -d postgres
 docker compose ps

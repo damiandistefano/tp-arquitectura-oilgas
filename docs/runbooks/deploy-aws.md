@@ -366,11 +366,18 @@ Errores frecuentes:
 
 ## 15. Cierre de release
 
-Cuando el equipo cierre Fase 1:
+Para cerrar una entrega:
 
 1. mergear `develop` hacia `main`;
 2. verificar que CI pase en `main`;
-3. confirmar que se publicó la imagen en GHCR;
+3. confirmar que se publicó la imagen en GHCR si el deploy usa la imagen del registry;
 4. desplegar en sandbox;
 5. correr smoke test;
-6. crear tag de release, por ejemplo `v0.1.0`.
+6. crear un tag anotado en `main`.
+
+Para Adenda 2 el tag de entrega es:
+
+```bash
+git tag -a v0.2.0 -m "Phase 2 Delivery - v0.2.0"
+git push origin v0.2.0
+```

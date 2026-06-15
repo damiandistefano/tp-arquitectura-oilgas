@@ -27,7 +27,7 @@ Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `dock
 | API | `http://16.59.211.99:8000` | - |
 | Swagger / OpenAPI UI | `http://16.59.211.99:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
 | OpenAPI JSON | `http://16.59.211.99:8000/openapi.json` | - |
-| Grafana | `http://16.59.211.99:3000` | `admin` / `admin` |
+| Grafana | `http://16.59.211.99:3000` | `admin` / `pKNF9UsS4mzDtnA` |
 | Prometheus | `http://16.59.211.99:9090` | - |
 | Alertmanager | `http://16.59.211.99:9093` | Slack real solo si se configura webhook valido |
 
@@ -155,7 +155,7 @@ Servicios locales:
 | `http://localhost:8000/docs` | Swagger de la API | Header `X-API-Key: abcdef12345` |
 | `http://localhost:8000/metrics` | Metric endpoint | - |
 | `http://localhost:9090` | Prometheus | - |
-| `http://localhost:3000` | Grafana | `admin` / `admin` |
+| `http://localhost:3000` | Grafana | `admin` / `pKNF9UsS4mzDtnA` |
 | `http://localhost:9093` | Alertmanager | - |
 | `http://localhost:8080` | cAdvisor | - |
 | `http://localhost:3001` | Metabase | `martinbianchi@udesa.edu.ar` / `Admin1234!` |
