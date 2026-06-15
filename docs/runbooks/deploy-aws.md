@@ -33,6 +33,17 @@ La instancia EC2 debe cumplir:
 - Docker Compose plugin disponible.
 - Acceso a internet para descargar imágenes desde GHCR.
 
+Tamaño recomendado segun lo que se vaya a mostrar:
+
+| Uso de la instancia | Tamaño razonable | Comentario |
+|---|---|---|
+| API sola | `t3.micro` | Alcanza para validar Swagger/endpoints si no se levanta monitoreo completo. |
+| API + Prometheus/Grafana/Alertmanager/cAdvisor | `t3.small` o `t3.medium` | Mas estable para demo con observabilidad. |
+| Stack de datos local completo en la misma EC2 | `t3.medium` o `t3.large` | Dagster, Metabase, Postgres y dbt consumen mas memoria; usar on-demand solo para validar/demo. |
+| DataHub | EC2 dedicada, ver `docs/runbooks/datahub.md` | No mezclar con cAdvisor ni con el sandbox chico; DataHub requiere mas memoria. |
+
+Si la instancia actual es `large`, conviene justificarla solo si esta corriendo el stack de datos completo o DataHub. Para API/monitoreo simple, bajar a una instancia menor despues de validar reduce costo sin cambiar arquitectura.
+
 Security Group recomendado:
 
 | Puerto | Uso | Observación |

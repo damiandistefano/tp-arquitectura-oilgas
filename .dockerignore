@@ -40,8 +40,19 @@ Thumbs.db
 .idea/
 
 # Project files not needed inside the API image
+contexto/
 docs/
 tests/
+dagster/
+datahub/
+dbt/
+extract/
+quality/
+postgres-init/
+prometheus/
+grafana/
+alertmanager/
+scripts/
 *.md
 CONTRIBUTING.md
 
