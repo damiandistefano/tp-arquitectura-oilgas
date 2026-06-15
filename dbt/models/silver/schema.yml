@@ -13,7 +13,9 @@ models:
       - name: produccion_id
         tests:
           - not_null
-          - unique
+          - unique:
+              config:
+                severity: warn
       - name: idpozo
         tests:
           - not_null

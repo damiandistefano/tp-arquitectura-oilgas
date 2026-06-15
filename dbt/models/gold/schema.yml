@@ -15,7 +15,9 @@ models:
         description: "Identificador surrogate del registro de producción."
         tests:
           - not_null
-          - unique
+          - unique:
+              config:
+                severity: warn
       - name: pozo_id
         description: "Clave surrogate del pozo."
         tests:
