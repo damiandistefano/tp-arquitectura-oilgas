@@ -10,6 +10,8 @@
 set -euo pipefail
 
 API_KEY="${API_KEY:-abcdef12345}"
+GRAFANA_ADMIN_USER="${GRAFANA_ADMIN_USER:-admin}"
+GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-pKNF9UsS4mzDtnA}"
 
 if [[ $# -lt 1 ]]; then
   echo "Uso: $0 <EC2_PUBLIC_IP|BASE_URL>"
@@ -117,7 +119,7 @@ echo "[ Grafana ]"
 run_check "Grafana /api/health OK" \
   bash -c "curl -fsS --max-time 5 '${BASE_URL}:3000/api/health' | grep -q '\"database\": \"ok\"'"
 
-DS=$(curl -fsS --max-time 5 -u "admin:admin" "${BASE_URL}:3000/api/datasources" 2>/dev/null || true)
+DS=$(curl -fsS --max-time 5 -u "${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}" "${BASE_URL}:3000/api/datasources" 2>/dev/null || true)
 
 echo "${DS}" | grep -qi "prometheus" && R=0 || R=1
 check "Datasource Prometheus provisionado" "${R}"

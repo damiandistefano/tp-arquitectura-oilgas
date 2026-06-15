@@ -75,17 +75,13 @@ El archivo `.env` debe existir solo en el servidor o en entornos locales control
 
 ## 4. Preparación inicial del servidor
 
-Conectarse a la instancia:
+Conectarse a la instancia. La instancia de la entrega es Amazon Linux (`ec2-user`) con IP `16.59.211.99` y llave `tp-soft.pem`:
 
 ```bash
-ssh -i tu-llave.pem ec2-user@<EC2_PUBLIC_IP>
+ssh -i tp-soft.pem ec2-user@16.59.211.99
 ```
 
-O, si la AMI es Ubuntu:
-
-```bash
-ssh -i tu-llave.pem ubuntu@<EC2_PUBLIC_IP>
-```
+Si se reprovisiona sobre una AMI Ubuntu, el usuario es `ubuntu` en vez de `ec2-user`.
 
 Clonar el repo:
 
@@ -115,7 +111,7 @@ Existe `scripts/initial_setup.sh` para preparar o reconstruir el sandbox siguien
 Uso:
 
 ```bash
-INSTANCE_IP=<EC2_PUBLIC_IP> \
+INSTANCE_IP=16.59.211.99 \
 PEM_KEY=./tu-key.pem \
 EC2_USER=ec2-user \
 bash scripts/initial_setup.sh
@@ -191,20 +187,20 @@ curl -f http://localhost:8000/openapi.json
 Desde una máquina externa:
 
 ```bash
-curl -f http://<EC2_PUBLIC_IP>:8000/openapi.json
+curl -f http://16.59.211.99:8000/openapi.json
 ```
 
 Endpoint funcional:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://<EC2_PUBLIC_IP>:8000/api/v1/wells?date_query=2026-03-15"
+  "http://16.59.211.99:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 Swagger:
 
 ```text
-http://<EC2_PUBLIC_IP>:8000/docs
+http://16.59.211.99:8000/docs
 ```
 
 ---
@@ -293,10 +289,10 @@ curl -f http://localhost:9093/-/healthy
 Desde afuera, si los puertos están abiertos:
 
 ```text
-http://<EC2_PUBLIC_IP>:8000/docs
-http://<EC2_PUBLIC_IP>:3000
-http://<EC2_PUBLIC_IP>:9090
-http://<EC2_PUBLIC_IP>:9093
+http://16.59.211.99:8000/docs
+http://16.59.211.99:3000
+http://16.59.211.99:9090
+http://16.59.211.99:9093
 ```
 
 ---
@@ -306,13 +302,13 @@ http://<EC2_PUBLIC_IP>:9093
 Desde la máquina local:
 
 ```bash
-bash scripts/sandbox-smoke.sh <EC2_PUBLIC_IP>
+bash scripts/sandbox-smoke.sh 16.59.211.99
 ```
 
 O:
 
 ```bash
-bash scripts/sandbox-smoke.sh http://<EC2_PUBLIC_IP>
+bash scripts/sandbox-smoke.sh http://16.59.211.99
 ```
 
 También existe workflow manual:
@@ -370,11 +366,18 @@ Errores frecuentes:
 
 ## 15. Cierre de release
 
-Cuando el equipo cierre Fase 1:
+Para cerrar una entrega:
 
 1. mergear `develop` hacia `main`;
 2. verificar que CI pase en `main`;
-3. confirmar que se publicó la imagen en GHCR;
+3. confirmar que se publicó la imagen en GHCR si el deploy usa la imagen del registry;
 4. desplegar en sandbox;
 5. correr smoke test;
-6. crear tag de release, por ejemplo `v0.1.0`.
+6. crear un tag anotado en `main`.
+
+Para Adenda 2 el tag de entrega es:
+
+```bash
+git tag -a v0.2.0 -m "Phase 2 Delivery - v0.2.0"
+git push origin v0.2.0
+```

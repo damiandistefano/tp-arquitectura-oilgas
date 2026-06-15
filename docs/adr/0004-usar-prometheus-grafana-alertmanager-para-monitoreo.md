@@ -69,7 +69,7 @@ Trade-offs que quedan:
 - si el stack baja y no se persiste el volumen de Prometheus, el historial de métricas se pierde;
 - no hay logs centralizados: para debuggear hay que usar `docker compose logs`;
 - Alertmanager enruta solo a Slack en esta fase; agregar email requeriría configurar SMTP;
-- autenticación de Grafana es básica (`admin/admin`); no es adecuado para acceso público real.
+- autenticación de Grafana es básica (`admin` con password compartido para la entrega); no es adecuado para acceso público real.
 
 Queda fuera: logs estructurados, tracing distribuido, APM completo, SSO en Grafana, alta
 disponibilidad de Prometheus y retención de métricas a largo plazo.

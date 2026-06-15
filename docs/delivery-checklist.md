@@ -279,6 +279,6 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Imagen GHCR publicada para el commit final si se usa deploy desde registry.
 - [ ] Smoke test de AWS ejecutado por script o workflow manual si se muestra EC2.
 - [ ] Merge a `main`.
-- [ ] Tag de release en `main`.
+- [ ] Tag de release `v0.2.0` creado en `main`.
 - [ ] Zip armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
 - [ ] Zip armado y revisado contra la lista de exclusiones.

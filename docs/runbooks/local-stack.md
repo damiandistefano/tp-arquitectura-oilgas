@@ -94,7 +94,7 @@ http://localhost:3000
 Credenciales:
 
 ```text
-admin / admin
+admin / pKNF9UsS4mzDtnA
 ```
 
 Dashboard:
