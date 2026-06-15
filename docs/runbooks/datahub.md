@@ -38,6 +38,8 @@ Configuracion probada para el quickstart:
 
 No exponer `8080` publicamente. La ingesta lo usa desde la misma EC2.
 
+Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en `t3.micro`. Para esta entrega se justifica `t3.large` como instancia dedicada y on-demand, prendida solo para validar o grabar la demo. No usar este tamaño como referencia para el sandbox de API si solo se muestra Fase 1.
+
 ---
 
 ## 3. Levantar la EC2
