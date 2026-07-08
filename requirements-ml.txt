@@ -1,0 +1,7 @@
+# Dependencias del pipeline de ML (ml/ y feature_store/).
+# Separadas de requirements.txt porque la imagen alpine de la API no puede
+# compilar scikit-learn (musl, sin wheels); la imagen de dagster (slim) las
+# instala desde dagster/requirements.txt.
+pandas
+scikit-learn
+joblib
