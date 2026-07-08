@@ -56,6 +56,11 @@ PRIMARY_METRIC = "mae"
 MODEL_NAME = "oilgas_forecaster"
 CHAMPION_ALIAS = "champion"
 
+# Drift check minimo: compara la distribucion reciente de features contra
+# las feature_reference_stats del champion (calculadas en su training run).
+DRIFT_WINDOW_MONTHS = 3
+DRIFT_Z_THRESHOLD = 3.0
+
 
 def get_artifacts_dir() -> Path:
     """Directorio local de artefactos (fallback de sandbox sin MLflow)."""
