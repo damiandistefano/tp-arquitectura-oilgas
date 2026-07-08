@@ -1,5 +1,7 @@
 from datetime import date, datetime
+import logging
 import os
+import time
 
 from fastapi import FastAPI, HTTPException, Query, Security, status
 from fastapi.security.api_key import APIKeyHeader
@@ -14,7 +16,10 @@ from app.feature_lookup import (
 )
 from app.ml_inference import ModelPredictionError, generate_forecast
 from app.model_registry import ModelUnavailableError
+from app import prediction_logging
 from app.schemas import ForecastResponse
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
@@ -153,6 +158,72 @@ def forecast_service(id_pozo: str, date_start: date, date_end: date) -> Forecast
     return generate_forecast(id_pozo, date_start, date_end)
 
 
+def _elapsed_ms(start_time: float) -> int:
+    return int((time.perf_counter() - start_time) * 1000)
+
+
+def _object_as_dict(value) -> dict:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    if hasattr(value, "dict"):
+        return value.dict()
+    return {}
+
+
+def _response_summary(response) -> tuple[int, dict, dict]:
+    response_dict = _object_as_dict(response)
+    predictions = response_dict.get("predictions", [])
+    model = _object_as_dict(response_dict.get("model"))
+    summary = {
+        "horizon": response_dict.get("horizon", []),
+        "prediction_count": len(predictions),
+        "model": model,
+    }
+    return len(predictions), model, summary
+
+
+def _record_forecast_log(
+    *,
+    id_pozo: str,
+    date_start: date,
+    date_end: date,
+    status_value: str,
+    latency_ms: int,
+    response=None,
+    error_message: str | None = None,
+) -> None:
+    prediction_count, model, summary = _response_summary(response)
+    record = prediction_logging.PredictionLogRecord(
+        id_pozo=id_pozo,
+        date_start=date_start,
+        date_end=date_end,
+        target="prod_pet",
+        status=status_value,
+        latency_ms=latency_ms,
+        request_payload={
+            "id_pozo": id_pozo,
+            "date_start": date_start.isoformat(),
+            "date_end": date_end.isoformat(),
+        },
+        prediction_count=prediction_count,
+        response_summary=summary if status_value == "success" else {},
+        error_message=error_message,
+        model_name=model.get("name"),
+        model_version=model.get("version"),
+        model_alias=model.get("alias"),
+        mlflow_run_id=model.get("run_id"),
+        model_source=model.get("source"),
+    )
+    try:
+        prediction_logging.log_prediction(record)
+    except prediction_logging.PredictionLoggingError as exc:
+        logger.warning("No se pudo registrar prediction log: %s", exc)
+
+
 @app.get("/api/v1/forecast", response_model=ForecastResponse)
 def obtener_pronostico(
     id_pozo: str = Query(..., description="Identificador del pozo"),
@@ -163,25 +234,60 @@ def obtener_pronostico(
     """
     Obtiene el pronóstico mensual de producción de un pozo entre dos fechas.
     """
+    request_started = time.perf_counter()
     start_dt = parse_date(date_start, "date_start").date()
     end_dt = parse_date(date_end, "date_end").date()
 
     if start_dt > end_dt:
+        detail = "La fecha de inicio no puede ser posterior a la fecha de fin"
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=detail,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La fecha de inicio no puede ser posterior a la fecha de fin",
+            detail=detail,
         )
 
     try:
-        return forecast_service(id_pozo, start_dt, end_dt)
+        response = forecast_service(id_pozo, start_dt, end_dt)
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="success",
+            latency_ms=_elapsed_ms(request_started),
+            response=response,
+        )
+        return response
     except HTTPException:
         raise
     except InvalidFeatureRangeError as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
     except (PozoFeaturesNotFoundError, FeatureRangeNotFoundError) as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -192,14 +298,31 @@ def obtener_pronostico(
         ModelUnavailableError,
         ModelPredictionError,
     ) as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
     except Exception as exc:
+        detail = "Error inesperado al generar el forecast"
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=detail,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error inesperado al generar el forecast",
+            detail=detail,
         ) from exc
 
 

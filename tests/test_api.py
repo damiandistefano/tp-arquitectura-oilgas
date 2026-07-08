@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.api as api_module
@@ -11,6 +12,15 @@ client = TestClient(api_module.app)
 
 API_KEY = "abcdef12345"
 HEADERS = {"X-API-Key": API_KEY}
+
+
+@pytest.fixture(autouse=True)
+def no_prediction_logging(monkeypatch):
+    monkeypatch.setattr(
+        api_module.prediction_logging,
+        "log_prediction",
+        lambda record: None,
+    )
 
 
 def test_acceso_denegado_sin_api_key():
