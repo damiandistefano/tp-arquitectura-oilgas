@@ -7,3 +7,5 @@ requests
 psycopg[binary]==3.2.10
 psycopg2-binary
 python-dotenv
+scikit-learn
+joblib

@@ -1,11 +1,12 @@
 """Assets del pipeline de datos."""
 
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 
-from dagster import Backoff, RetryPolicy, asset, get_dagster_logger
+from dagster import Backoff, Config, RetryPolicy, asset, get_dagster_logger
 
 _WORKSPACE = "/workspace"
 _DBT_PROJECT_DIR = f"{_WORKSPACE}/dbt"
@@ -128,3 +129,78 @@ def run_quality_checks():
         raise RuntimeError(f"Quality checks fallaron:\n{result.stderr}")
 
     log.info("Checks de calidad completados")
+
+
+class MLDateConfig(Config):
+    """as_of_date en formato YYYY-MM-DD; vacío usa la fecha de hoy.
+
+    Permite repetir el entrenamiento para un día dado relanzando el job
+    desde el launchpad de Dagster con otro as_of_date.
+    """
+
+    as_of_date: str = ""
+
+
+def _run_ml_module(module: str, extra_args: list[str]) -> dict:
+    """Corre un módulo de ml/ y devuelve el JSON que imprime en stdout."""
+    log = get_dagster_logger()
+    command = [sys.executable, "-m", module, *extra_args]
+    log.info("Ejecutando: %s", " ".join(command))
+
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        cwd=_WORKSPACE,
+        check=False,
+    )
+
+    if result.stderr:
+        log.info(result.stderr)
+    log.info(result.stdout)
+    if result.returncode != 0:
+        raise RuntimeError(f"{module} falló:\n{result.stderr}")
+
+    last_line = result.stdout.strip().splitlines()[-1]
+    return json.loads(last_line)
+
+
+@asset(
+    name="build_features",
+    deps=["run_quality_checks"],
+    description="Genera features mensuales por pozo (sin leakage) en features.pozo_monthly_features.",
+    group_name="ml",
+)
+def build_features(config: MLDateConfig):
+    args = ["--as-of-date", config.as_of_date] if config.as_of_date else []
+    summary = _run_ml_module("ml.build_features", args)
+    get_dagster_logger().info("Features generadas: %s", summary)
+    return summary
+
+
+@asset(
+    name="train_model",
+    deps=["build_features"],
+    description="Entrena el modelo, evalúa contra baseline y guarda reference stats en el mismo run.",
+    group_name="ml",
+)
+def train_model(config: MLDateConfig):
+    args = ["--as-of-date", config.as_of_date] if config.as_of_date else []
+    run_info = _run_ml_module("ml.train", args)
+    get_dagster_logger().info("Training run: %s", run_info["run_id"])
+    return run_info["run_id"]
+
+
+@asset(
+    name="promote_model",
+    description="Aplica el gate de promoción (con bootstrap) al candidato recién entrenado.",
+    group_name="ml",
+)
+def promote_model(train_model):
+    decision = _run_ml_module(
+        "ml.promotion_gate", ["--candidate-run-id", train_model]
+    )
+    get_dagster_logger().info(
+        "Gate: promoted=%s (%s)", decision["promoted"], decision["reason"]
+    )
+    return decision

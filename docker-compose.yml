@@ -42,6 +42,9 @@ services:
       - ./dbt:/workspace/dbt:ro
       - ./quality:/workspace/quality:ro
       - ./dagster/dwh_pipeline:/workspace/dwh_pipeline:ro
+      - ./ml:/workspace/ml:ro
+      - ./feature_store:/workspace/feature_store:ro
+      - ./ml_artifacts:/workspace/ml_artifacts
     networks:
       - monitoring
     depends_on:
