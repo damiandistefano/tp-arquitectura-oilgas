@@ -6,6 +6,7 @@ El repo cubre dos etapas:
 
 - Fase 1: API REST mock, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
 - Fase 2: integracion de datos con arquitectura Medallion, warehouse PostgreSQL, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
+- Adenda 3: feature store offline, training batch, model serving y prediction logs para forecast mensual.
 
 La entrega sigue siendo un sandbox academico. No se presenta como una plataforma productiva con alta disponibilidad, gobierno enterprise o despliegue multiambiente completo.
 
@@ -215,7 +216,7 @@ En Windows, los scripts Bash requieren Git Bash, WSL o un entorno compatible. Si
 
 ---
 
-## API mock de Fase 1
+## API y forecast predictivo
 
 Todos los endpoints funcionales requieren:
 
@@ -228,7 +229,7 @@ Endpoints principales:
 | Metodo | Endpoint | Descripcion |
 |---|---|---|
 | `GET` | `/api/v1/wells?date_query=YYYY-MM-DD` | Devuelve pozos activos para la fecha consultada. |
-| `GET` | `/api/v1/forecast?id_well=POZO-001&date_start=YYYY-MM-DD&date_end=YYYY-MM-DD` | Devuelve un pronostico mock diario para el pozo y rango indicado. |
+| `GET` | `/api/v1/forecast?id_pozo=POZO-001&date_start=YYYY-MM-DD&date_end=YYYY-MM-DD` | Devuelve forecast mensual model-backed para el pozo y rango indicado. |
 | `GET` | `/health` | Health check del servicio. |
 | `GET` | `/metrics` | Metricas Prometheus. |
 | `GET` | `/docs` | Swagger/OpenAPI. |
@@ -240,10 +241,20 @@ curl -H "X-API-Key: abcdef12345" \
   "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
 
 curl -H "X-API-Key: abcdef12345" \
-  "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
+  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01"
 ```
 
-La API usa datos mock deterministas. El modelo predictivo real queda fuera de Fase 1.
+El forecast usa features de `features.pozo_monthly_features`, carga el modelo
+activo `oilgas_forecaster` alias `champion` via adapter y devuelve metadata
+runtime (`version`, `run_id`, `source`). Si MLflow no esta disponible, puede
+usar fallback local visible con `model.source = local_fallback`.
+
+La imagen de API instala las dependencias minimas para servir artifacts sklearn
+locales (`pandas`, `scikit-learn`, `joblib`) y monta `ml_artifacts` como solo
+lectura en Compose.
+
+Cada request con fechas validas intenta persistir metadata de inferencia en
+`metadata.prediction_logs`. Ver [docs/inference-serving.md](docs/inference-serving.md).
 
 ---
 
@@ -370,7 +381,7 @@ Fase 2:
 
 Implementado:
 
-- API REST mock.
+- API REST con forecast mensual model-backed.
 - Dockerizacion.
 - CI/CD y GHCR para API.
 - Monitoreo tecnico.
@@ -380,11 +391,13 @@ Implementado:
 - Quality checks persistidos.
 - Metabase para BI.
 - DataHub como catalogo externo de metadata.
+- Feature store offline, training batch y serving predictivo con adapter.
 - ADRs, runbooks y checklist de entrega.
 
 Limitaciones asumidas:
 
-- No hay modelo predictivo real.
+- El serving es de alcance sandbox academico: no hay alta disponibilidad,
+  canary releases ni plataforma enterprise de modelos.
 - No hay CDC real desde las fuentes publicas.
 - No hay alta disponibilidad ni Kubernetes.
 - No hay multiambiente completo dev/staging/prod.

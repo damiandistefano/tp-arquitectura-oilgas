@@ -52,7 +52,7 @@ curl -H "X-API-Key: abcdef12345" \
   "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
 
 curl -H "X-API-Key: abcdef12345" \
-  "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20"
+  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01"
 ```
 
 Sin API Key, los endpoints funcionales deben devolver `403`.
@@ -179,7 +179,7 @@ Después de la ventana definida en Prometheus, la alerta debería entrar en `fir
 
 ### HighLatency
 
-La API mock responde rápido, por lo que esta alerta queda validada principalmente por inspección de regla y dashboard. Para dispararla end-to-end haría falta inyectar latencia artificial o usar un endpoint lento, lo cual queda fuera del alcance de Fase 1.
+La API suele responder rapido en sandbox, por lo que esta alerta queda validada principalmente por inspeccion de regla y dashboard. Para dispararla end-to-end haria falta inyectar latencia artificial o usar un endpoint lento, lo cual queda fuera del alcance de esta entrega.
 
 ---
 

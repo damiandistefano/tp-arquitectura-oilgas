@@ -56,6 +56,14 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ---
 
+## ADRs de Adenda 3 - ML Engineering
+
+| # | Titulo | Estado | Area |
+|---|---|---|---|
+| [0020](0020-servir-modelo-con-fastapi-feature-enrichment-y-adapter.md) | Servir modelo con FastAPI, feature enrichment y adapter | Aceptado | Model serving |
+
+---
+
 ## Cobertura actual contra Adenda 2
 
 | Decision pedida o esperada | ADR que la cubre | Nota |

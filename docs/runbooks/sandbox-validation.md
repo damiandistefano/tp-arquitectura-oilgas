@@ -81,7 +81,7 @@ Completar tras el smoke test para dejar evidencia de entrega.
 - [ ] `GET /docs` renderiza Swagger UI.
 - [ ] `GET /metrics` expone `http_requests_total`.
 - [ ] `GET /api/v1/wells?date_query=2026-03-15` con `X-API-Key: abcdef12345` responde 200.
-- [ ] `GET /api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20` con API Key responde 200.
+- [ ] `GET /api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01` con API Key responde 200 o un 404/503 controlado si faltan features/modelo en el sandbox.
 - [ ] `GET /api/v1/wells?date_query=2026-03-15` sin header responde 403.
 
 ### Prometheus

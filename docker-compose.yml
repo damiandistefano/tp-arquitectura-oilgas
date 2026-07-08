@@ -73,8 +73,26 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-dwh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dwh}
+      POSTGRES_CONNECT_TIMEOUT: ${POSTGRES_CONNECT_TIMEOUT:-3}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-}
+      MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME:-oilgas_forecaster}
+      MLFLOW_MODEL_ALIAS: ${MLFLOW_MODEL_ALIAS:-champion}
+      ML_ARTIFACTS_DIR: ${ML_ARTIFACTS_DIR:-ml_artifacts}
+      LOCAL_MODEL_FALLBACK_PATH: ${LOCAL_MODEL_FALLBACK_PATH:-}
+      LOCAL_MODEL_FALLBACK_ENABLED: ${LOCAL_MODEL_FALLBACK_ENABLED:-true}
+    volumes:
+      - ./ml_artifacts:/app/ml_artifacts:ro
     networks:
       - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   prometheus:
     build: ./prometheus

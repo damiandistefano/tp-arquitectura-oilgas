@@ -1,14 +1,30 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime
+import logging
 import os
+import time
 
 from fastapi import FastAPI, HTTPException, Query, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
+from app.feature_lookup import (
+    FeatureRangeNotFoundError,
+    FeatureSchemaError,
+    FeatureTableUnavailableError,
+    InvalidFeatureRangeError,
+    PozoFeaturesNotFoundError,
+)
+from app.ml_inference import ModelPredictionError, generate_forecast
+from app.model_registry import ModelUnavailableError
+from app import prediction_logging
+from app.schemas import ForecastResponse
+
+logger = logging.getLogger(__name__)
+
 
 app = FastAPI(
     title="Oil & Gas Forecast API",
-    description="API mock para predicción de producción",
+    description="API para predicción mensual de producción",
     version="1.0.0",
 )
 
@@ -106,23 +122,6 @@ def is_well_active(well: dict, query_date: datetime) -> bool:
     return True
 
 
-def calculate_mock_production(well: dict, current_dt: datetime, start_dt: datetime) -> float:
-    """
-    Calcula una producción mock determinística.
-
-    Parámetros:
-      - well: Datos mock del pozo.
-      - current_dt: Fecha del punto de forecast.
-      - start_dt: Fecha inicial del rango.
-
-    Returns:
-      - Producción diaria esperada.
-    """
-    days_from_start = (current_dt - start_dt).days
-    production = well["base_prod"] - (days_from_start * well["daily_decline"])
-    return round(max(production, 0.0), 2)
-
-
 @app.get("/")
 def ruta_principal():
     return {"mensaje": "Hola equipo! El servidor de FastAPI está funcionando perfecto."}
@@ -154,48 +153,177 @@ def obtener_pozos(
     ]
 
 
-@app.get("/api/v1/forecast")
+def forecast_service(id_pozo: str, date_start: date, date_end: date) -> ForecastResponse:
+    """Punto de integración para el servicio de inferencia."""
+    return generate_forecast(id_pozo, date_start, date_end)
+
+
+def _elapsed_ms(start_time: float) -> int:
+    return int((time.perf_counter() - start_time) * 1000)
+
+
+def _object_as_dict(value) -> dict:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    if hasattr(value, "dict"):
+        return value.dict()
+    return {}
+
+
+def _response_summary(response) -> tuple[int, dict, dict]:
+    response_dict = _object_as_dict(response)
+    predictions = response_dict.get("predictions", [])
+    model = _object_as_dict(response_dict.get("model"))
+    summary = {
+        "horizon": response_dict.get("horizon", []),
+        "prediction_count": len(predictions),
+        "model": model,
+    }
+    return len(predictions), model, summary
+
+
+def _record_forecast_log(
+    *,
+    id_pozo: str,
+    date_start: date,
+    date_end: date,
+    status_value: str,
+    latency_ms: int,
+    response=None,
+    error_message: str | None = None,
+) -> None:
+    prediction_count, model, summary = _response_summary(response)
+    record = prediction_logging.PredictionLogRecord(
+        id_pozo=id_pozo,
+        date_start=date_start,
+        date_end=date_end,
+        target="prod_pet",
+        status=status_value,
+        latency_ms=latency_ms,
+        request_payload={
+            "id_pozo": id_pozo,
+            "date_start": date_start.isoformat(),
+            "date_end": date_end.isoformat(),
+        },
+        prediction_count=prediction_count,
+        response_summary=summary if status_value == "success" else {},
+        error_message=error_message,
+        model_name=model.get("name"),
+        model_version=model.get("version"),
+        model_alias=model.get("alias"),
+        mlflow_run_id=model.get("run_id"),
+        model_source=model.get("source"),
+    )
+    try:
+        prediction_logging.log_prediction(record)
+    except prediction_logging.PredictionLoggingError as exc:
+        logger.warning("No se pudo registrar prediction log: %s", exc)
+
+
+@app.get("/api/v1/forecast", response_model=ForecastResponse)
 def obtener_pronostico(
-    id_well: str = Query(..., description="Identificador del pozo"),
+    id_pozo: str = Query(..., description="Identificador del pozo"),
     date_start: str = Query(..., description="Fecha de inicio (YYYY-MM-DD)"),
     date_end: str = Query(..., description="Fecha de fin (YYYY-MM-DD)"),
     api_key: str = Security(get_api_key),
 ):
     """
-    Obtiene el pronóstico de producción diaria de un pozo entre dos fechas.
+    Obtiene el pronóstico mensual de producción de un pozo entre dos fechas.
     """
-    if id_well not in MOCK_WELLS:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe el pozo {id_well}",
-        )
-
-    start_dt = parse_date(date_start, "date_start")
-    end_dt = parse_date(date_end, "date_end")
+    request_started = time.perf_counter()
+    start_dt = parse_date(date_start, "date_start").date()
+    end_dt = parse_date(date_end, "date_end").date()
 
     if start_dt > end_dt:
+        detail = "La fecha de inicio no puede ser posterior a la fecha de fin"
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=detail,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La fecha de inicio no puede ser posterior a la fecha de fin",
+            detail=detail,
         )
 
-    well = MOCK_WELLS[id_well]
-    forecast_data = []
-    current_dt = start_dt
-
-    while current_dt <= end_dt:
-        forecast_data.append(
-            {
-                "date": current_dt.strftime("%Y-%m-%d"),
-                "prod": calculate_mock_production(well, current_dt, start_dt),
-            }
+    try:
+        response = forecast_service(id_pozo, start_dt, end_dt)
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="success",
+            latency_ms=_elapsed_ms(request_started),
+            response=response,
         )
-        current_dt += timedelta(days=1)
-
-    return {
-        "id_well": id_well,
-        "data": forecast_data,
-    }
+        return response
+    except HTTPException:
+        raise
+    except InvalidFeatureRangeError as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except (PozoFeaturesNotFoundError, FeatureRangeNotFoundError) as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except (
+        FeatureTableUnavailableError,
+        FeatureSchemaError,
+        ModelUnavailableError,
+        ModelPredictionError,
+    ) as exc:
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        detail = "Error inesperado al generar el forecast"
+        _record_forecast_log(
+            id_pozo=id_pozo,
+            date_start=start_dt,
+            date_end=end_dt,
+            status_value="error",
+            latency_ms=_elapsed_ms(request_started),
+            error_message=detail,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        ) from exc
 
 
 @app.get("/api/v1/debug/fail", include_in_schema=False)
