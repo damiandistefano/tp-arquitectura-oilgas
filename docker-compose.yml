@@ -20,6 +20,24 @@ services:
       retries: 5
       start_period: 10s
 
+  mlflow:
+    build: ./mlflow
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow/data
+      - mlflow-artifacts:/mlflow/artifacts
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   dagster:
     build: ./dagster
     container_name: dagster
@@ -37,6 +55,9 @@ services:
       POZOS_SOURCE_URL: ${POZOS_SOURCE_URL:-http://datos.energia.gob.ar/dataset/c846e79c-026c-4040-897f-1ad3543b407c/resource/cbfa4d79-ffb3-4096-bab5-eb0dde9a8385/download/listado-de-pozos-cargados-por-empresas-operadoras.csv}
       DATA_PIPELINE_RETRIES: ${DATA_PIPELINE_RETRIES:-3}
       DATA_PIPELINE_RETRY_BACKOFF_SECONDS: ${DATA_PIPELINE_RETRY_BACKOFF_SECONDS:-30}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME:-oilgas_forecaster}
+      MLFLOW_MODEL_ALIAS: ${MLFLOW_MODEL_ALIAS:-champion}
     volumes:
       - ./extract:/workspace/extract:ro
       - ./dbt:/workspace/dbt:ro
@@ -49,6 +70,8 @@ services:
       - monitoring
     depends_on:
       postgres:
+        condition: service_healthy
+      mlflow:
         condition: service_healthy
     restart: unless-stopped
 
@@ -80,7 +103,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-dwh}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dwh}
       POSTGRES_CONNECT_TIMEOUT: ${POSTGRES_CONNECT_TIMEOUT:-3}
-      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME:-oilgas_forecaster}
       MLFLOW_MODEL_ALIAS: ${MLFLOW_MODEL_ALIAS:-champion}
       ML_ARTIFACTS_DIR: ${ML_ARTIFACTS_DIR:-ml_artifacts}
@@ -92,6 +115,8 @@ services:
       - monitoring
     depends_on:
       postgres:
+        condition: service_healthy
+      mlflow:
         condition: service_healthy
 
   prometheus:
@@ -149,3 +174,5 @@ volumes:
   grafana-data:
   postgres-data:
   metabase-data:
+  mlflow-data:
+  mlflow-artifacts:

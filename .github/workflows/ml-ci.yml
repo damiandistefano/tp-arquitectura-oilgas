@@ -1,0 +1,73 @@
+name: ML CI
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+
+jobs:
+  ml-fixture-pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      API_KEY: abcdef12345
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Start postgres, mlflow and api
+        run: |
+          cp .env.example .env
+          # Crear ml_artifacts ANTES de levantar docker compose: el
+          # servicio api la monta como volumen (./ml_artifacts:/app/ml_artifacts:ro)
+          # y si no existe, Docker la crea como root al hacer el bind mount,
+          # dejando sin permiso de escritura al paso siguiente (que corre
+          # ml/train.py como el usuario del runner, no root).
+          mkdir -p ml_artifacts
+          docker compose up -d --build postgres mlflow api
+
+          for i in {1..20}; do
+            if curl -sf http://localhost:8000/openapi.json > /dev/null; then
+              echo "API up"
+              break
+            fi
+            sleep 3
+          done
+
+      - name: MLflow smoke test
+        run: |
+          bash scripts/mlflow-smoke.sh
+
+      - name: ML fixture pipeline (features -> train -> gate -> API -> drift)
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+        run: |
+          bash scripts/data-ml-ci-smoke.sh
+
+      - name: Show services logs on failure
+        if: failure()
+        run: |
+          docker compose logs postgres mlflow api
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose down -v

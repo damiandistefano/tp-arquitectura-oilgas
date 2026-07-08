@@ -211,6 +211,17 @@ def record_feature_run_end(
         )
 
 
+def read_reference_stats(
+    conn: psycopg.Connection, training_run_id: str
+) -> pd.DataFrame:
+    """Lee las reference stats generadas en un run de training (drift check)."""
+    return _fetch_frame(
+        conn,
+        f"SELECT * FROM {REFERENCE_STATS_TABLE} WHERE training_run_id = %s",
+        (training_run_id,),
+    )
+
+
 def write_reference_stats(
     conn: psycopg.Connection, rows: Iterable[Mapping[str, object]]
 ) -> int:
