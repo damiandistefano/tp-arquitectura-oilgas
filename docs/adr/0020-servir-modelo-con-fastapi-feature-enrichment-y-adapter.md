@@ -105,8 +105,9 @@ Contras:
 
 Elegimos la Opcion A: FastAPI con feature enrichment interno y adapter de
 modelo. Es el camino mas simple y reversible para el sandbox: mantiene la API
-existente, separa responsabilidades y permite usar MLflow cuando este
-disponible o fallback local visible cuando no.
+existente, separa responsabilidades y permite intentar MLflow cuando
+`MLFLOW_TRACKING_URI` esta configurado y la dependencia esta disponible. Si no,
+usa artifact local o fallback local visible.
 
 El cliente solo envia `id_pozo`, `date_start` y `date_end`. La API busca
 features en Postgres, carga el modelo activo por `model_registry.py`, devuelve
@@ -129,10 +130,11 @@ Smoke manual:
 bash scripts/api-forecast-smoke.sh
 ```
 
-Con Postgres y modelo/fallback disponibles, `/api/v1/forecast` debe responder
-`200` con `id_pozo`, `target = prod_pet`, predicciones mensuales y metadata de
-modelo. Si faltan features o modelo, debe responder `404` o `503` controlado,
-sin stack trace crudo.
+Para la demo final, con features y modelo/fallback disponibles,
+`/api/v1/forecast` debe responder `200` con `id_pozo`, `target = prod_pet`,
+predicciones mensuales y metadata de modelo. El `404` o `503` controlado del
+smoke solo es aceptable durante integracion parcial, cuando todavia faltan
+features en Postgres o modelo activo.
 
 ## Consecuencias y trade-offs
 
@@ -141,6 +143,9 @@ sin stack trace crudo.
   respuesta mock.
 - El fallback local se ve como `local_fallback`; no simula ser MLflow.
 - Se agrega una tabla de auditoria minima en Postgres.
+- Para servir artifacts sklearn locales, la imagen de API instala dependencias
+  minimas de serving (`pandas`, `scikit-learn`, `joblib`) y monta
+  `ml_artifacts` como solo lectura.
 - No se implementa Ray Serve, SageMaker, TensorFlow Serving, HITL ni drift
   monitoring completo en este bloque.
 - Si el feature store no tiene filas para el pozo/rango, la API no inventa
@@ -150,5 +155,3 @@ sin stack trace crudo.
 
 - [Contratos tecnicos - Adenda 3](../contracts.md)
 - [Serving de inferencia forecast](../inference-serving.md)
-- `contexto/adenda3/contracts/adenda3_contracts_cerrados.md`
-- `contexto/adenda3/adr/adr_template_y_tono.md`

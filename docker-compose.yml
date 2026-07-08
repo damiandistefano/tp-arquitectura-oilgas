@@ -86,6 +86,8 @@ services:
       ML_ARTIFACTS_DIR: ${ML_ARTIFACTS_DIR:-ml_artifacts}
       LOCAL_MODEL_FALLBACK_PATH: ${LOCAL_MODEL_FALLBACK_PATH:-}
       LOCAL_MODEL_FALLBACK_ENABLED: ${LOCAL_MODEL_FALLBACK_ENABLED:-true}
+    volumes:
+      - ./ml_artifacts:/app/ml_artifacts:ro
     networks:
       - monitoring
     depends_on:

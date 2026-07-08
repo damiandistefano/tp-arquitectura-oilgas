@@ -249,6 +249,10 @@ activo `oilgas_forecaster` alias `champion` via adapter y devuelve metadata
 runtime (`version`, `run_id`, `source`). Si MLflow no esta disponible, puede
 usar fallback local visible con `model.source = local_fallback`.
 
+La imagen de API instala las dependencias minimas para servir artifacts sklearn
+locales (`pandas`, `scikit-learn`, `joblib`) y monta `ml_artifacts` como solo
+lectura en Compose.
+
 Cada request con fechas validas intenta persistir metadata de inferencia en
 `metadata.prediction_logs`. Ver [docs/inference-serving.md](docs/inference-serving.md).
 

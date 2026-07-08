@@ -1,9 +1,15 @@
 import sys
 from types import SimpleNamespace
 
+import joblib
 import pytest
 
 from app import model_registry
+
+
+class FakeJoblibForecaster:
+    def predict(self, rows):
+        return [row["prod_pet_lag_1"] for row in rows]
 
 
 def _clear_registry_env(monkeypatch):
@@ -82,6 +88,35 @@ def test_fallback_builtin_deriva_metadata_de_runtime(monkeypatch):
     assert active.metadata.version.startswith("local-")
     assert active.metadata.run_id.startswith("local_fallback_")
     assert active.model.predict([{"prod_pet_lag_1": 120.555}]) == [120.56]
+
+
+def test_fallback_local_carga_champion_joblib_desde_artifacts(monkeypatch, tmp_path):
+    _clear_registry_env(monkeypatch)
+    run_id = "model_20260701_test"
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    joblib.dump(FakeJoblibForecaster(), run_dir / "model.pkl")
+    (run_dir / "metrics.json").write_text(
+        '{"run_id": "model_20260701_test", "model_version": "artifact-v1"}',
+        encoding="utf-8",
+    )
+    (tmp_path / "champion.json").write_text(
+        '{"run_id": "model_20260701_test", "model_version": "champion-v1"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ML_ARTIFACTS_DIR", str(tmp_path))
+
+    active = model_registry.get_active_model()
+
+    assert isinstance(active.model, FakeJoblibForecaster)
+    assert active.metadata.as_dict() == {
+        "name": "oilgas_forecaster",
+        "version": "champion-v1",
+        "alias": "champion",
+        "run_id": run_id,
+        "source": "local_fallback",
+    }
+    assert active.model.predict([{"prod_pet_lag_1": 123.4}]) == [123.4]
 
 
 def test_get_active_model_falla_si_no_hay_mlflow_ni_fallback(monkeypatch):

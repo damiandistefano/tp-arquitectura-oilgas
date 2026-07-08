@@ -37,9 +37,10 @@ La respuesta publica usa `id_pozo`, target mensual `prod_pet`, horizonte
 
 1. `app/api.py` valida API key y fechas.
 2. `app/feature_lookup.py` lee `features.pozo_monthly_features` en Postgres.
-3. `app/model_registry.py` busca el modelo activo en MLflow.
-4. Si MLflow no esta disponible, usa fallback local visible con
-   `model.source = "local_fallback"`.
+3. `app/model_registry.py` intenta usar MLflow cuando `MLFLOW_TRACKING_URI`
+   esta configurado y la dependencia esta disponible.
+4. Si MLflow no esta disponible, usa artifact local o fallback local visible
+   con `model.source = "local_fallback"`.
 5. `app/ml_inference.py` ejecuta `predict` y normaliza la salida mensual.
 6. `app/prediction_logging.py` intenta registrar la inferencia en
    `metadata.prediction_logs`.
@@ -57,6 +58,10 @@ LOCAL_MODEL_FALLBACK_ENABLED=true
 
 El fallback local es para sandbox/demo. No se oculta como MLflow: la respuesta
 y los logs guardan `model_source = local_fallback`.
+
+Para servir artifacts sklearn locales, la imagen de API instala las
+dependencias minimas de serving (`pandas`, `scikit-learn`, `joblib`) y monta
+`ml_artifacts` como solo lectura en `/app/ml_artifacts`.
 
 ## Errores
 
@@ -88,6 +93,7 @@ convierte en error solo porque Postgres no pudo escribir el log.
 bash scripts/api-forecast-smoke.sh
 ```
 
-Si todavia no hay features en Postgres o no hay modelo activo, el script acepta
-un `404` o `503` controlado como precondicion faltante. Con feature store y
-modelo/fallback disponibles, valida respuesta `200` y metadata runtime.
+Para la demo final, el endpoint deberia responder `200` con features y
+modelo/fallback disponibles. El script acepta un `404` o `503` controlado solo
+como senal de integracion parcial: faltan features en Postgres o modelo activo,
+pero la API y el contrato ya son alcanzables.
