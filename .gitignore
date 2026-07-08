@@ -229,3 +229,6 @@ aws_credentials.csv
 dbt/logs/
 dbt/target/
 dbt/.user.yml
+
+# Artefactos locales de modelos (fallback de sandbox; MLflow es la fuente primaria)
+ml_artifacts/
