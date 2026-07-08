@@ -18,7 +18,7 @@ curl -fsS --max-time 5 "${MLFLOW_URL}/" > /dev/null
 echo "OK / (UI de tracking)"
 
 curl -fsS --max-time 5 -X GET \
-  "${MLFLOW_URL}/api/2.0/mlflow/experiments/search" \
+  "${MLFLOW_URL}/api/2.0/mlflow/experiments/search?max_results=1" \
   -H "Content-Type: application/json" > /dev/null
 echo "OK /api/2.0/mlflow/experiments/search"
 
