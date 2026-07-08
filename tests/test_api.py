@@ -1,9 +1,10 @@
 from datetime import date
 
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import app.api as api_module
+from app.feature_lookup import PozoFeaturesNotFoundError
+from app.model_registry import ModelUnavailableError
 
 
 client = TestClient(api_module.app)
@@ -184,7 +185,7 @@ def test_forecast_pozo_inexistente(monkeypatch):
     """Prueba que consultar un pozo inexistente devuelva 404."""
 
     def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
-        raise HTTPException(status_code=404, detail=f"No existe el pozo {id_pozo}")
+        raise PozoFeaturesNotFoundError(f"No existe el pozo {id_pozo}")
 
     monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
     response = client.get(
@@ -194,6 +195,38 @@ def test_forecast_pozo_inexistente(monkeypatch):
 
     assert response.status_code == 404
     assert "No existe el pozo POZO-999" in response.json()["detail"]
+
+
+def test_forecast_modelo_no_disponible(monkeypatch):
+    """Prueba que la falta de modelo activo se exponga como 503."""
+
+    def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
+        raise ModelUnavailableError("No hay modelo activo")
+
+    monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
+    response = client.get(
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-15&date_end=2026-03-20",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 503
+    assert "No hay modelo activo" in response.json()["detail"]
+
+
+def test_forecast_error_inesperado(monkeypatch):
+    """Prueba que errores inesperados no expongan stack traces."""
+
+    def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
+        raise RuntimeError("fallo interno sensible")
+
+    monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
+    response = client.get(
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-15&date_end=2026-03-20",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Error inesperado al generar el forecast"}
 
 
 def test_metrics_endpoint_disponible():

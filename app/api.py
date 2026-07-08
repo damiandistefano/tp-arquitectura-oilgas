@@ -5,6 +5,15 @@ from fastapi import FastAPI, HTTPException, Query, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
+from app.feature_lookup import (
+    FeatureRangeNotFoundError,
+    FeatureSchemaError,
+    FeatureTableUnavailableError,
+    InvalidFeatureRangeError,
+    PozoFeaturesNotFoundError,
+)
+from app.ml_inference import ModelPredictionError, generate_forecast
+from app.model_registry import ModelUnavailableError
 from app.schemas import ForecastResponse
 
 
@@ -141,10 +150,7 @@ def obtener_pozos(
 
 def forecast_service(id_pozo: str, date_start: date, date_end: date) -> ForecastResponse:
     """Punto de integración para el servicio de inferencia."""
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Servicio de inferencia no disponible",
-    )
+    return generate_forecast(id_pozo, date_start, date_end)
 
 
 @app.get("/api/v1/forecast", response_model=ForecastResponse)
@@ -166,7 +172,35 @@ def obtener_pronostico(
             detail="La fecha de inicio no puede ser posterior a la fecha de fin",
         )
 
-    return forecast_service(id_pozo, start_dt, end_dt)
+    try:
+        return forecast_service(id_pozo, start_dt, end_dt)
+    except HTTPException:
+        raise
+    except InvalidFeatureRangeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except (PozoFeaturesNotFoundError, FeatureRangeNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except (
+        FeatureTableUnavailableError,
+        FeatureSchemaError,
+        ModelUnavailableError,
+        ModelPredictionError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error inesperado al generar el forecast",
+        ) from exc
 
 
 @app.get("/api/v1/debug/fail", include_in_schema=False)
