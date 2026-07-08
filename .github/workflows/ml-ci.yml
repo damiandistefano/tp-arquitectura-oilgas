@@ -35,6 +35,12 @@ jobs:
       - name: Start postgres, mlflow and api
         run: |
           cp .env.example .env
+          # Crear ml_artifacts ANTES de levantar docker compose: el
+          # servicio api la monta como volumen (./ml_artifacts:/app/ml_artifacts:ro)
+          # y si no existe, Docker la crea como root al hacer el bind mount,
+          # dejando sin permiso de escritura al paso siguiente (que corre
+          # ml/train.py como el usuario del runner, no root).
+          mkdir -p ml_artifacts
           docker compose up -d --build postgres mlflow api
 
           for i in {1..20}; do
