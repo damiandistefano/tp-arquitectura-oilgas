@@ -72,7 +72,11 @@ def build_conninfo() -> str:
     dbname = os.getenv("POSTGRES_DB", "warehouse")
     user = os.getenv("POSTGRES_USER", "dwh")
     password = os.getenv("POSTGRES_PASSWORD", "dwh")
-    return f"host={host} port={port} dbname={dbname} user={user} password={password}"
+    timeout = os.getenv("POSTGRES_CONNECT_TIMEOUT", "3")
+    return (
+        f"host={host} port={port} dbname={dbname} user={user} "
+        f"password={password} connect_timeout={timeout}"
+    )
 
 
 def connect() -> psycopg.Connection:

@@ -59,7 +59,7 @@ referencia: el drift check nunca se queda sin baseline de comparación.
 
 ## Registro de modelos y runtime metadata
 
-- Nombre del modelo: `oilgas-prod-pet-forecast`; alias del activo: `champion`.
+- Nombre del modelo: `oilgas_forecaster`; alias del activo: `champion`.
 - **MLflow es la fuente primaria** (tracking + registry) cuando
   `MLFLOW_TRACKING_URI` está seteado.
 - **Fallback local visible** (sandbox): `ml_artifacts/runs/<run_id>/`

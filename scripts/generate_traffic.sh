@@ -16,13 +16,13 @@ KEY="${API_KEY:-abcdef12345}"
 echo "Generando tráfico contra: ${API}"
 echo ""
 
-echo "[1/3] Generando 2xx (requests válidos)..."
+echo "[1/3] Generando requests con API key..."
 for _ in {1..40}; do
   curl -s -H "X-API-Key: ${KEY}" \
     "${API}/api/v1/wells?date_query=2026-03-15" > /dev/null || true
 
   curl -s -H "X-API-Key: ${KEY}" \
-    "${API}/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null || true
+    "${API}/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01" > /dev/null || true
 done
 
 echo "[2/3] Generando 4xx (sin API key)..."

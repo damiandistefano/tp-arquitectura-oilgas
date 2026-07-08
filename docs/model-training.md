@@ -21,7 +21,7 @@ python -m ml.train --as-of-date 2026-06-01
   sin referencia).
 - Artefactos locales: `ml_artifacts/runs/<run_id>/` con `model.pkl` y
   `metrics.json`. Si `MLFLOW_TRACKING_URI` está seteado, además se loguea
-  el run en MLflow y se registra el modelo `oilgas-prod-pet-forecast`.
+  el run en MLflow y se registra el modelo `oilgas_forecaster`.
   MLflow es la fuente primaria; el artefacto local es el fallback visible
   de sandbox.
 

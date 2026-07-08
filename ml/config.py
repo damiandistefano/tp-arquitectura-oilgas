@@ -53,7 +53,7 @@ MIN_TRAIN_MONTHS = 6
 PRIMARY_METRIC = "mae"
 
 # Registro de modelos
-MODEL_NAME = "oilgas-prod-pet-forecast"
+MODEL_NAME = "oilgas_forecaster"
 CHAMPION_ALIAS = "champion"
 
 
