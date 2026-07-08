@@ -1,9 +1,12 @@
+from datetime import date
+
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app.api import app
+import app.api as api_module
 
 
-client = TestClient(app)
+client = TestClient(api_module.app)
 
 API_KEY = "abcdef12345"
 HEADERS = {"X-API-Key": API_KEY}
@@ -53,27 +56,99 @@ def test_wells_devuelve_pozos_activos():
     assert {"id_well": "POZO-001", "name": "Pozo Norte 1"} in wells
 
 
-def test_forecast_devuelve_estructura_esperada():
-    """Prueba que forecast devuelva id_well y un array diario con date/prod."""
+def test_forecast_requiere_api_key():
+    """Prueba que forecast mantiene protección por API key."""
     response = client.get(
-        "/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-17",
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-08-01"
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "No se pudo validar la API Key"}
+
+
+def test_forecast_devuelve_estructura_esperada(monkeypatch):
+    """Prueba que forecast devuelva el contrato mensual con id_pozo."""
+
+    def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
+        assert id_pozo == "POZO-001"
+        assert date_start == date(2026, 7, 1)
+        assert date_end == date(2026, 8, 1)
+        return {
+            "id_pozo": id_pozo,
+            "target": "prod_pet",
+            "horizon": ["2026-07", "2026-08"],
+            "predictions": [
+                {"periodo_mes": "2026-07", "prediction": 123.4},
+                {"periodo_mes": "2026-08", "prediction": 120.1},
+            ],
+            "model": {
+                "name": "oilgas_forecaster",
+                "version": "test-version",
+                "alias": "champion",
+                "run_id": "test-run",
+                "source": "mlflow",
+            },
+        }
+
+    monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
+    response = client.get(
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-08-01",
         headers=HEADERS,
     )
 
     assert response.status_code == 200
 
     body = response.json()
-    assert body["id_well"] == "POZO-001"
-    assert "data" in body
-    assert len(body["data"]) == 3
-    assert body["data"][0] == {"date": "2026-03-15", "prod": 180.0}
-    assert body["data"][1] == {"date": "2026-03-16", "prod": 179.85}
-    assert body["data"][2] == {"date": "2026-03-17", "prod": 179.7}
+    assert body == {
+        "id_pozo": "POZO-001",
+        "target": "prod_pet",
+        "horizon": ["2026-07", "2026-08"],
+        "predictions": [
+            {"periodo_mes": "2026-07", "prediction": 123.4},
+            {"periodo_mes": "2026-08", "prediction": 120.1},
+        ],
+        "model": {
+            "name": "oilgas_forecaster",
+            "version": "test-version",
+            "alias": "champion",
+            "run_id": "test-run",
+            "source": "mlflow",
+        },
+    }
+    assert "id_well" not in body
 
 
-def test_forecast_es_deterministico():
+def test_forecast_no_acepta_id_well_legacy():
+    """Prueba que el contrato nuevo requiere id_pozo."""
+    response = client.get(
+        "/api/v1/forecast?id_well=POZO-001&date_start=2026-07-01&date_end=2026-08-01",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 422
+
+
+def test_forecast_es_deterministico(monkeypatch):
     """Prueba que dos consultas iguales devuelvan el mismo resultado."""
-    url = "/api/v1/forecast?id_well=POZO-002&date_start=2026-03-15&date_end=2026-03-20"
+    expected_body = {
+        "id_pozo": "POZO-002",
+        "target": "prod_pet",
+        "horizon": ["2026-07"],
+        "predictions": [{"periodo_mes": "2026-07", "prediction": 145.0}],
+        "model": {
+            "name": "oilgas_forecaster",
+            "version": "test-version",
+            "alias": "champion",
+            "run_id": "test-run",
+            "source": "local_fallback",
+        },
+    }
+
+    def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
+        return expected_body | {"id_pozo": id_pozo}
+
+    monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
+    url = "/api/v1/forecast?id_pozo=POZO-002&date_start=2026-07-01&date_end=2026-07-01"
 
     first_response = client.get(url, headers=HEADERS)
     second_response = client.get(url, headers=HEADERS)
@@ -86,7 +161,7 @@ def test_forecast_es_deterministico():
 def test_forecast_fechas_invalidas():
     """Prueba que el endpoint de forecast valide el formato de fechas."""
     response = client.get(
-        "/api/v1/forecast?id_well=POZO-001&date_start=15-03-2026&date_end=20-03-2026",
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=15-03-2026&date_end=20-03-2026",
         headers=HEADERS,
     )
 
@@ -97,7 +172,7 @@ def test_forecast_fechas_invalidas():
 def test_forecast_rango_invalido():
     """Prueba que la fecha de inicio no pueda ser mayor a la de fin."""
     response = client.get(
-        "/api/v1/forecast?id_well=POZO-001&date_start=2026-03-20&date_end=2026-03-15",
+        "/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-20&date_end=2026-03-15",
         headers=HEADERS,
     )
 
@@ -105,10 +180,15 @@ def test_forecast_rango_invalido():
     assert "no puede ser posterior" in response.json()["detail"]
 
 
-def test_forecast_pozo_inexistente():
+def test_forecast_pozo_inexistente(monkeypatch):
     """Prueba que consultar un pozo inexistente devuelva 404."""
+
+    def fake_forecast_service(id_pozo: str, date_start: date, date_end: date):
+        raise HTTPException(status_code=404, detail=f"No existe el pozo {id_pozo}")
+
+    monkeypatch.setattr(api_module, "forecast_service", fake_forecast_service)
     response = client.get(
-        "/api/v1/forecast?id_well=POZO-999&date_start=2026-03-15&date_end=2026-03-20",
+        "/api/v1/forecast?id_pozo=POZO-999&date_start=2026-03-15&date_end=2026-03-20",
         headers=HEADERS,
     )
 

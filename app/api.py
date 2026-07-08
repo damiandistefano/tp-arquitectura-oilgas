@@ -1,14 +1,16 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime
 import os
 
 from fastapi import FastAPI, HTTPException, Query, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
+from app.schemas import ForecastResponse
+
 
 app = FastAPI(
     title="Oil & Gas Forecast API",
-    description="API mock para predicción de producción",
+    description="API para predicción mensual de producción",
     version="1.0.0",
 )
 
@@ -106,23 +108,6 @@ def is_well_active(well: dict, query_date: datetime) -> bool:
     return True
 
 
-def calculate_mock_production(well: dict, current_dt: datetime, start_dt: datetime) -> float:
-    """
-    Calcula una producción mock determinística.
-
-    Parámetros:
-      - well: Datos mock del pozo.
-      - current_dt: Fecha del punto de forecast.
-      - start_dt: Fecha inicial del rango.
-
-    Returns:
-      - Producción diaria esperada.
-    """
-    days_from_start = (current_dt - start_dt).days
-    production = well["base_prod"] - (days_from_start * well["daily_decline"])
-    return round(max(production, 0.0), 2)
-
-
 @app.get("/")
 def ruta_principal():
     return {"mensaje": "Hola equipo! El servidor de FastAPI está funcionando perfecto."}
@@ -154,24 +139,26 @@ def obtener_pozos(
     ]
 
 
-@app.get("/api/v1/forecast")
+def forecast_service(id_pozo: str, date_start: date, date_end: date) -> ForecastResponse:
+    """Punto de integración para el servicio de inferencia."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Servicio de inferencia no disponible",
+    )
+
+
+@app.get("/api/v1/forecast", response_model=ForecastResponse)
 def obtener_pronostico(
-    id_well: str = Query(..., description="Identificador del pozo"),
+    id_pozo: str = Query(..., description="Identificador del pozo"),
     date_start: str = Query(..., description="Fecha de inicio (YYYY-MM-DD)"),
     date_end: str = Query(..., description="Fecha de fin (YYYY-MM-DD)"),
     api_key: str = Security(get_api_key),
 ):
     """
-    Obtiene el pronóstico de producción diaria de un pozo entre dos fechas.
+    Obtiene el pronóstico mensual de producción de un pozo entre dos fechas.
     """
-    if id_well not in MOCK_WELLS:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe el pozo {id_well}",
-        )
-
-    start_dt = parse_date(date_start, "date_start")
-    end_dt = parse_date(date_end, "date_end")
+    start_dt = parse_date(date_start, "date_start").date()
+    end_dt = parse_date(date_end, "date_end").date()
 
     if start_dt > end_dt:
         raise HTTPException(
@@ -179,23 +166,7 @@ def obtener_pronostico(
             detail="La fecha de inicio no puede ser posterior a la fecha de fin",
         )
 
-    well = MOCK_WELLS[id_well]
-    forecast_data = []
-    current_dt = start_dt
-
-    while current_dt <= end_dt:
-        forecast_data.append(
-            {
-                "date": current_dt.strftime("%Y-%m-%d"),
-                "prod": calculate_mock_production(well, current_dt, start_dt),
-            }
-        )
-        current_dt += timedelta(days=1)
-
-    return {
-        "id_well": id_well,
-        "data": forecast_data,
-    }
+    return forecast_service(id_pozo, start_dt, end_dt)
 
 
 @app.get("/api/v1/debug/fail", include_in_schema=False)
