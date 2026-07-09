@@ -1,12 +1,12 @@
-# Checklist de entrega - Adenda 2
+# Checklist de entrega - Adenda 2 + Adenda 3
 
 Este documento es la verdad operativa para cerrar la entrega. Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
 
 Responsables por area:
 
-- I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill.
-- I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase.
-- I3: governance/DataHub, README, ADR review, runbooks, checklist final y evidencia de entrega.
+- I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill, feature store, training y retraining.
+- I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase, serving predictivo y prediction logs.
+- I3: governance/DataHub, MLflow, CI ML, drift, README, ADR review, runbooks, checklist final y evidencia de entrega.
 
 ---
 
@@ -25,6 +25,21 @@ Responsables por area:
 | DataHub / governance | I3 | Stack externo en EC2 dedicada | UI `:9002`, datasets del warehouse, columnas/tipos y metadata tecnica |
 | Documentacion | I3 + equipo | Lista para entrega | README, ADRs, runbooks, contratos y checklist coherentes |
 
+### Adenda 3 - ML Engineering
+
+| Componente | Responsable | Estado para entrega | Evidencia esperada |
+|---|---|---|---|
+| Feature store offline | I1 | Listo local | `features.pozo_monthly_features` con grano `id_pozo + periodo_mes` |
+| No-leakage temporal | I1 | Cubierto por tests | `pytest tests/test_ml_features.py -q` |
+| Training + baseline + promotion gate | I1 | Listo | `ml.train`, baseline `prod_pet_lag_1`, gate con `promoted=true` en fixture |
+| Retraining Dagster | I1 | Listo local | Job `ml_training_job` y schedule `ml_retraining_monthly` |
+| MLflow tracking + registry + alias | I3 | Listo local | Run en experimento `oilgas_forecaster`, modelo registrado y alias `champion` |
+| API forecast model-backed | I2 | Listo local | `/api/v1/forecast` responde 200 con `model.source = mlflow` |
+| Prediction logs | I2 | Listo | Filas en `metadata.prediction_logs` con `status`, `model_source`, latencia y metadata |
+| Drift check | I3 | Listo | `bash scripts/run-drift-check.sh 2026-01-01` emite JSON con `drifted` por feature |
+| ML CI | I3 | Listo | Workflow `.github/workflows/ml-ci.yml` y `scripts/data-ml-ci-smoke.sh` |
+| Validacion final | I3 | Lista | `bash scripts/validate-delivery.sh` |
+
 Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su quickstart es pesado. Se opera con una EC2 dedicada y on-demand; ver [docs/runbooks/datahub.md](runbooks/datahub.md).
 
 ---
@@ -38,6 +53,7 @@ IPs vigentes de la entrega (instancias activas durante la correccion). No commit
 | Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://16.59.211.99` (`:8000` `:3000` `:9090` `:9093`) | Equipo / I1 |
 | DataHub | Catalogo/governance | `http://3.143.210.125:9002` | I3 |
 | Stack de datos (local) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | I1 + I2 |
+| Stack ML local | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | I1 + I2 + I3 |
 
 Dagster y Metabase no se exponen en el sandbox: se levantan localmente con `docker compose up`. El profe puede correrlos en su maquina con las instrucciones del README, o verlos en la demo en vivo.
 
@@ -183,6 +199,29 @@ dbt docs serve
 
 Validar modelos, columnas, tests y lineage.
 
+### Adenda 3 local
+
+Primera corrida despues del cambio de MLflow:
+
+```bash
+docker compose down -v
+cp .env.example .env
+mkdir -p ml_artifacts
+docker compose up --build -d postgres mlflow api dagster
+set -a; . ./.env; set +a
+bash scripts/mlflow-smoke.sh
+bash scripts/data-ml-ci-smoke.sh
+```
+
+Evidencia minima:
+
+- training registra un run en MLflow y una version de `oilgas_forecaster`;
+- gate imprime `promoted: true`;
+- alias `champion` queda verificado por el smoke;
+- forecast devuelve HTTP 200 y `model.source = mlflow`;
+- `metadata.prediction_logs` tiene una fila `success` con `model_source = mlflow`;
+- drift check corre y muestra `drifted` por feature.
+
 ### DataHub
 
 Validar en la EC2 dedicada antes de grabar o mostrar la demo:
@@ -219,6 +258,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | 0009-0012 | Presentes, I2: Medallion, Gold, calidad, Semantic |
 | 0013 | Presente, I3: DataHub / governance |
 | 0014 | Presente, I2: Metabase / BI |
+| 0015-0023 | Presentes, Adenda 3: forecasting, MLflow, feature store, gate, retraining, serving, ML CI, prediction logs y drift |
 
 ### Runbooks
 
@@ -239,6 +279,15 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | `docs/data-contracts-2.md` | Presente |
 | `docs/data-model.md` | Presente |
 | `docs/quality-checks.md` | Presente |
+
+### ML Engineering
+
+| Archivo | Estado |
+|---|---|
+| `docs/feature-store.md` | Presente |
+| `docs/model-training.md` | Presente |
+| `docs/inference-serving.md` | Presente |
+| `docs/demo-video-adenda3.md` | Presente |
 
 ---
 
@@ -271,6 +320,17 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Runbooks tienen pasos, validacion y que hacer si falla.
 - [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas.
 - [ ] No se promete produccion real ni alta disponibilidad.
+
+### Adenda 3
+
+- [ ] `docker compose down -v` ejecutado al menos una vez despues del cambio de MLflow.
+- [ ] `bash scripts/mlflow-smoke.sh` pasa.
+- [ ] `bash scripts/data-ml-ci-smoke.sh` pasa completo.
+- [ ] MLflow muestra run, modelo registrado y alias `champion`.
+- [ ] `/api/v1/forecast` devuelve 200 con `model.source = mlflow`.
+- [ ] `metadata.prediction_logs` registra `status = success` y `model_source = mlflow`.
+- [ ] `bash scripts/run-drift-check.sh 2026-01-01` corre.
+- [ ] `bash scripts/validate-delivery.sh` pasa.
 
 ### Entrega final
 

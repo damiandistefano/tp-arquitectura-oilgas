@@ -124,10 +124,15 @@ def run_drift_check(
             )
         )
 
+    for check in checks:
+        check["drifted"] = (
+            check["z_score"] is not None and abs(check["z_score"]) > z_threshold
+        )
+
     drifted = [
         check
         for check in checks
-        if check["z_score"] is not None and abs(check["z_score"]) > z_threshold
+        if check["drifted"]
     ]
 
     return {

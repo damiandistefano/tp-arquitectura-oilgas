@@ -48,6 +48,7 @@ export POSTGRES_USER="${POSTGRES_USER:-dwh}"
 export POSTGRES_DB="${POSTGRES_DB:-warehouse}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-dwh}"
 export API_KEY="${API_KEY:-abcdef12345}"
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
 step "docker compose config" docker compose config
 step "ruff check" ruff check .
@@ -59,7 +60,7 @@ step "levantar postgres + mlflow + api + dagster" \
 step "mlflow smoke" bash scripts/mlflow-smoke.sh
 step "pipeline ML con fixture chico" bash scripts/data-ml-ci-smoke.sh
 step "dagster tiene ml_training_job + schedule mensual" bash -c '
-  OUTPUT="$(docker compose exec -T -e DAGSTER_HOME=/tmp/dagster_home dagster \
+  OUTPUT="$(MSYS_NO_PATHCONV=1 docker compose exec -T -e DAGSTER_HOME=/tmp/dagster_home dagster \
     sh -c "mkdir -p \$DAGSTER_HOME \
       && dagster job list -m dwh_pipeline.definitions \
       && dagster schedule list -m dwh_pipeline.definitions")"

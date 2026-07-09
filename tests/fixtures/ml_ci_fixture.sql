@@ -37,14 +37,21 @@ VALUES
     ('POZO-001', 'NEUQUINA', 'NEUQUEN', 'EXPLOTACION', 'SHALE'),
     ('POZO-002', 'NEUQUINA', 'NEUQUEN', 'EXPLOTACION', 'SHALE');
 
--- 13 meses (2025-01 a 2026-01) por pozo, con una tendencia simple para
--- que el modelo tenga algo que aprender por encima del baseline naive.
+-- 13 meses (2025-01 a 2026-01) por pozo, con una senal alternante:
+-- lag_2 anticipa bien el valor actual y el baseline naive lag_1 queda
+-- deliberadamente debil. Esto hace deterministico el bootstrap del gate
+-- sin agrandar el fixture.
 INSERT INTO gold.fact_produccion_pozo (idpozo, fecha_mes, prod_pet)
 SELECT
     pozo.idpozo,
     (DATE '2025-01-01' + (month_offset || ' months')::interval)::date AS fecha_mes,
-    (pozo.base + month_offset * pozo.trend)::numeric AS prod_pet
+    (
+        CASE
+            WHEN month_offset % 2 = 0 THEN pozo.high_value
+            ELSE pozo.low_value
+        END
+    )::numeric AS prod_pet
 FROM generate_series(0, 12) AS month_offset
 CROSS JOIN (
-    VALUES ('POZO-001', 100.0, 3.0), ('POZO-002', 80.0, 2.0)
-) AS pozo(idpozo, base, trend);
+    VALUES ('POZO-001', 180.0, 90.0), ('POZO-002', 140.0, 70.0)
+) AS pozo(idpozo, high_value, low_value);

@@ -19,6 +19,8 @@ fi
 
 AS_OF_DATE="${1:-$(date +%F)}"
 ARTIFACTS_DIR="${ML_ARTIFACTS_DIR:-ml_artifacts}"
+export MLFLOW_TRACKING_URI="${MLFLOW_TRACKING_URI:-http://localhost:5000}"
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
 echo "==> [1/3] Generando features (as-of-date ${AS_OF_DATE})"
 "$PYTHON_BIN" -m ml.build_features --as-of-date "$AS_OF_DATE"
