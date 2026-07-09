@@ -60,7 +60,15 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 | # | Titulo | Estado | Area |
 |---|---|---|---|
+| [0015](0015-definir-target-y-grano-de-forecasting.md) | Definir target y grano de forecasting | Aceptado | Modelo |
+| [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Usar MLflow para tracking y registry | Aceptado | Tracking |
+| [0017](0017-usar-postgres-como-feature-store.md) | Usar Postgres como feature store | Aceptado | Feature store |
+| [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | Definir modelo, baseline y gate de promocion | Aceptado | Modelo |
+| [0019](0019-orquestar-retraining-con-dagster-vs-airflow.md) | Orquestar el retraining con Dagster | Aceptado | Orquestacion |
 | [0020](0020-servir-modelo-con-fastapi-feature-enrichment-y-adapter.md) | Servir modelo con FastAPI, feature enrichment y adapter | Aceptado | Model serving |
+| [0021](0021-ci-con-fixture-chico-para-pipeline-ml.md) | CI con fixture chico para el pipeline de ML | Aceptado | CI/CD |
+| [0022](0022-registrar-prediction-logs-en-postgres.md) | Registrar prediction logs en Postgres | Aceptado | Observabilidad |
+| [0023](0023-drift-check-minimo-sin-monitoring-productivo.md) | Drift check minimo, sin monitoring productivo | Aceptado | Observabilidad |
 
 ---
 
