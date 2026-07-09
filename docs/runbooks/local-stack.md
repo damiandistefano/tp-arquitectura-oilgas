@@ -52,8 +52,12 @@ curl -H "X-API-Key: abcdef12345" \
   "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
 
 curl -H "X-API-Key: abcdef12345" \
-  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01"
+  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-01-01&date_end=2026-01-01"
 ```
+
+Para la demo model-backed de Adenda 3, levantar tambien `postgres` y `mlflow`,
+correr `bash scripts/data-ml-ci-smoke.sh` y usar un rango existente en
+`features.pozo_monthly_features`.
 
 Sin API Key, los endpoints funcionales deben devolver `403`.
 

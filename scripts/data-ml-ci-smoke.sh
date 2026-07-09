@@ -25,6 +25,8 @@ fi
 POSTGRES_USER="${POSTGRES_USER:-dwh}"
 POSTGRES_DB="${POSTGRES_DB:-warehouse}"
 AS_OF_DATE="${1:-2026-01-01}"
+export MLFLOW_TRACKING_URI="${MLFLOW_TRACKING_URI:-http://localhost:5000}"
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
 echo "==> [1/6] Cargando fixture gold chico en Postgres"
 docker compose exec -T postgres psql \
@@ -49,20 +51,52 @@ echo "==> [5/6] Gate de promocion bootstrap (candidato ${RUN_ID})"
 GATE_OUTPUT="$("$PYTHON_BIN" -m ml.promotion_gate --candidate-run-id "$RUN_ID")"
 echo "$GATE_OUTPUT"
 
-# El fixture es chico y deterministico: el gate puede razonablemente NO
-# promover si el candidato no supera al baseline naive (eso es el gate
-# funcionando bien, no un bug). Lo unico que valida este paso es que la
-# decision se haya calculado con la metrica primaria presente.
-echo "$GATE_OUTPUT" | "$PYTHON_BIN" -c "
-import json, sys
-decision = json.load(sys.stdin)
-assert 'promoted' in decision, 'el gate no devolvio una decision valida'
-assert decision.get('candidate', {}).get('mae') is not None, 'el candidato no tiene metricas'
-print(f\"==> Gate decidio promoted={decision['promoted']}: {decision['reason']}\")
-"
+export GATE_OUTPUT
+PROMOTED="$("$PYTHON_BIN" - <<'PY'
+import json
+import os
+import sys
+
+decision = json.loads(os.environ["GATE_OUTPUT"])
+assert "promoted" in decision, "el gate no devolvio una decision valida"
+assert decision.get("candidate", {}).get("mae") is not None, "el candidato no tiene metricas"
+print(
+    f"==> Gate decidio promoted={decision['promoted']}: {decision['reason']}",
+    file=sys.stderr,
+)
+assert decision["promoted"] is True, "el fixture ML debe promover al candidato"
+print("1")
+PY
+)"
+
+if [ "$PROMOTED" = "1" ] && [ -n "${MLFLOW_TRACKING_URI:-}" ]; then
+  "$PYTHON_BIN" - <<'PY'
+import os
+
+import mlflow
+
+tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
+model_name = os.getenv("MLFLOW_MODEL_NAME", "oilgas_forecaster")
+alias = os.getenv("MLFLOW_MODEL_ALIAS", "champion")
+client = mlflow.MlflowClient(tracking_uri=tracking_uri)
+version = client.get_model_version_by_alias(model_name, alias)
+print(
+    f"==> Alias MLflow verificado: {model_name}@{alias} "
+    f"-> version={version.version}, run_id={version.run_id}"
+)
+PY
+fi
 
 echo "==> [6/6] API forecast smoke + prediction log + drift check"
+if [ "$PROMOTED" = "1" ]; then
+  EXPECTED_MODEL_SOURCE_VALUE="mlflow"
+else
+  EXPECTED_MODEL_SOURCE_VALUE=""
+fi
+
 CHECK_PREDICTION_LOGS=1 \
+  REQUIRE_200=1 \
+  EXPECTED_MODEL_SOURCE="${EXPECTED_MODEL_SOURCE_VALUE}" \
   ID_POZO="${ID_POZO:-POZO-001}" \
   DATE_START="${DATE_START:-2026-01-01}" \
   DATE_END="${DATE_END:-2026-01-01}" \
@@ -75,12 +109,10 @@ set -e
 echo "$DRIFT_OUTPUT"
 
 # exit 0/1 (ok/drift_detected) = evaluo correctamente, cualquiera de los
-# dos es un resultado valido. exit 2 con status "no_champion" tambien es
-# valido: en este fixture chico el gate puede no haber promovido nada
-# todavia. Lo unico que es una falla real del smoke es exit 2 por
-# no_reference_stats/no_recent_data: eso si indica un bug del pipeline.
-if [ "$DRIFT_STATUS" -eq 2 ] && ! echo "$DRIFT_OUTPUT" | grep -q '"no_champion"'; then
-  echo "==> data-ml-ci-smoke fallo: drift check no pudo evaluarse por un motivo inesperado"
+# dos es un resultado valido. exit 2 indica que el drift check no pudo
+# usar el champion promovido y eso bloquea el smoke integrado.
+if [ "$DRIFT_STATUS" -eq 2 ]; then
+  echo "==> data-ml-ci-smoke fallo: drift check no pudo evaluarse"
   exit 1
 fi
 

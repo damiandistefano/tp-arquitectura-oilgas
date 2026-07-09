@@ -6,8 +6,11 @@ set -euo pipefail
 API_URL="${API_URL:-http://localhost:8000}"
 API_KEY="${API_KEY:-abcdef12345}"
 ID_POZO="${ID_POZO:-POZO-001}"
-DATE_START="${DATE_START:-2026-07-01}"
-DATE_END="${DATE_END:-2026-12-01}"
+DATE_START="${DATE_START:-2026-01-01}"
+DATE_END="${DATE_END:-2026-01-01}"
+REQUIRE_200="${REQUIRE_200:-0}"
+EXPECTED_MODEL_SOURCE="${EXPECTED_MODEL_SOURCE:-}"
+FORECAST_MAX_TIME_SECONDS="${FORECAST_MAX_TIME_SECONDS:-60}"
 
 TMP_RESPONSE="$(mktemp)"
 trap 'rm -f "${TMP_RESPONSE}"' EXIT
@@ -27,7 +30,7 @@ echo "OK /openapi.json"
 
 FORECAST_URL="${API_URL}/api/v1/forecast?id_pozo=${ID_POZO}&date_start=${DATE_START}&date_end=${DATE_END}"
 STATUS="$(
-  curl -sS --max-time 10 \
+  curl -sS --max-time "${FORECAST_MAX_TIME_SECONDS}" \
     -o "${TMP_RESPONSE}" \
     -w "%{http_code}" \
     -H "X-API-Key: ${API_KEY}" \
@@ -35,11 +38,11 @@ STATUS="$(
 )"
 
 if [[ "${STATUS}" == "200" ]]; then
-  python - "${TMP_RESPONSE}" "${ID_POZO}" <<'PY'
+  python - "${TMP_RESPONSE}" "${ID_POZO}" "${EXPECTED_MODEL_SOURCE}" <<'PY'
 import json
 import sys
 
-path, expected_id = sys.argv[1], sys.argv[2]
+path, expected_id, expected_source = sys.argv[1], sys.argv[2], sys.argv[3]
 body = json.loads(open(path, encoding="utf-8").read())
 
 assert body["id_pozo"] == expected_id
@@ -50,9 +53,20 @@ assert body["model"]["name"]
 assert body["model"]["version"]
 assert body["model"]["run_id"]
 assert body["model"]["source"] in {"mlflow", "local_fallback"}
+if expected_source:
+    assert body["model"]["source"] == expected_source, (
+        f"model.source esperado {expected_source!r}, "
+        f"recibido {body['model']['source']!r}"
+    )
 PY
   echo "OK /api/v1/forecast contrato id_pozo + metadata runtime"
 elif [[ "${STATUS}" == "404" || "${STATUS}" == "503" ]]; then
+  if [[ "${REQUIRE_200}" == "1" ]]; then
+    echo "ERROR /api/v1/forecast respondio ${STATUS} y REQUIRE_200=1"
+    cat "${TMP_RESPONSE}"
+    echo ""
+    exit 1
+  fi
   echo "WARN /api/v1/forecast respondio ${STATUS}: endpoint alcanzable con precondicion faltante"
   echo "Esto es aceptable si aun no hay features en Postgres o modelo activo/fallback disponible."
   cat "${TMP_RESPONSE}"

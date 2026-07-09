@@ -133,6 +133,7 @@ def _log_to_mlflow(run_id: str, model, run_info: dict, train_frame: pd.DataFrame
     if not tracking_uri:
         logger.info("MLFLOW_TRACKING_URI no seteado: solo artefactos locales")
         return None
+    info = None
     try:
         import mlflow  # noqa: PLC0415
 
@@ -167,6 +168,13 @@ def _log_to_mlflow(run_id: str, model, run_info: dict, train_frame: pd.DataFrame
             logger.info("Run logueado en MLflow: %s", info)
             return info
     except Exception as exc:  # noqa: BLE001
+        if info is not None:
+            logger.warning(
+                "MLflow registro el modelo, pero emitio un error al finalizar (%s): "
+                "uso la metadata registrada",
+                exc,
+            )
+            return info
         logger.warning("MLflow no disponible (%s): sigo solo con artefactos locales", exc)
         return None
 

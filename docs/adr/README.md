@@ -86,6 +86,22 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 | Gobierno de datos y catalogo | 0013 | DataHub en EC2 dedicada, comparado contra OpenMetadata, Amundsen y dbt Docs. |
 | BI para usuarios no tecnicos | 0014 | Metabase, comparado contra Grafana y Superset. |
 
+## Cobertura contra Adenda 3
+
+| Decision pedida o esperada | ADR que la cubre | Nota |
+|---|---|---|
+| Target, grano y contrato del forecast | 0015 | `prod_pet` mensual con grano `id_pozo + periodo_mes`. |
+| Tracking, registry y alias de modelo | 0016 | MLflow como fuente primaria local, con alias `champion`. |
+| Feature store offline | 0017 | Postgres y tabla `features.pozo_monthly_features`. |
+| Baseline y promotion gate | 0018 | Baseline `prod_pet_lag_1` y gate que compara candidato, baseline y champion. |
+| Orquestacion de retraining | 0019 | Dagster con `ml_training_job` y `ml_retraining_monthly`. |
+| Serving predictivo | 0020 | FastAPI con feature enrichment, adapter MLflow/fallback y metadata runtime. |
+| CI de pipeline ML | 0021 | Fixture chico y smoke end-to-end en `ml-ci.yml`. |
+| Prediction logs | 0022 | Persistencia en `metadata.prediction_logs`. |
+| Drift check minimo | 0023 | Check desacoplado del serving con z-score y flag `drifted`. |
+
 ## Criterio de cierre
 
-Los ADRs cubren las decisiones obligatorias de la Fase 2 y tambien dejan documentado el trade-off de BI. La recomendacion para la entrega es no sumar ADRs nuevos salvo que haya una decision implementada y evidencia concreta para defenderla.
+Los ADRs cubren las decisiones obligatorias de Fase 2 y Adenda 3. Para la entrega
+solo deberian sumarse ADRs nuevos si aparece una decision tecnica implementada,
+con trade-offs reales y evidencia concreta para defenderla.

@@ -3,7 +3,7 @@
 El endpoint predictivo de Adenda 3 es:
 
 ```text
-GET /api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01
+GET /api/v1/forecast?id_pozo=POZO-001&date_start=2026-01-01&date_end=2026-01-01
 ```
 
 Requiere header:
@@ -97,3 +97,9 @@ Para la demo final, el endpoint deberia responder `200` con features y
 modelo/fallback disponibles. El script acepta un `404` o `503` controlado solo
 como senal de integracion parcial: faltan features en Postgres o modelo activo,
 pero la API y el contrato ya son alcanzables.
+
+## Limitacion explicita
+
+El forecast mensual model-backed opera sobre periodos existentes en
+`features.pozo_monthly_features`. La generacion recursiva de meses futuros queda
+fuera de alcance de esta entrega.

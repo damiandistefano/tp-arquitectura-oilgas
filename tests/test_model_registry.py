@@ -78,8 +78,9 @@ def test_fallback_local_json_queda_visible(monkeypatch, tmp_path):
     assert active.metadata.run_id == "fallback-run-1"
 
 
-def test_fallback_builtin_deriva_metadata_de_runtime(monkeypatch):
+def test_fallback_builtin_deriva_metadata_de_runtime(monkeypatch, tmp_path):
     _clear_registry_env(monkeypatch)
+    monkeypatch.setenv("ML_ARTIFACTS_DIR", str(tmp_path))
 
     active = model_registry.get_active_model()
 
@@ -119,8 +120,9 @@ def test_fallback_local_carga_champion_joblib_desde_artifacts(monkeypatch, tmp_p
     assert active.model.predict([{"prod_pet_lag_1": 123.4}]) == [123.4]
 
 
-def test_get_active_model_falla_si_no_hay_mlflow_ni_fallback(monkeypatch):
+def test_get_active_model_falla_si_no_hay_mlflow_ni_fallback(monkeypatch, tmp_path):
     _clear_registry_env(monkeypatch)
+    monkeypatch.setenv("ML_ARTIFACTS_DIR", str(tmp_path))
     monkeypatch.setenv("LOCAL_MODEL_FALLBACK_ENABLED", "false")
 
     with pytest.raises(model_registry.ModelUnavailableError) as excinfo:

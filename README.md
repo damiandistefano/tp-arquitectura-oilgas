@@ -170,6 +170,58 @@ docker compose down
 
 ---
 
+## Demo Adenda 3 (local)
+
+La demo model-backed de Adenda 3 se valida localmente con el Compose completo.
+La primera vez despues del cambio de MLflow hay que resetear volumenes para que
+el experimento use `mlflow-artifacts:/` y el tracking server proxy artifacts por HTTP.
+
+```bash
+docker compose down -v
+cp .env.example .env
+mkdir -p ml_artifacts
+docker compose up --build -d postgres mlflow api dagster
+
+set -a; . ./.env; set +a
+bash scripts/mlflow-smoke.sh
+bash scripts/data-ml-ci-smoke.sh
+```
+
+El smoke integrado carga el fixture, genera features, entrena, registra el modelo
+en MLflow, ejecuta el promotion gate, verifica alias `champion`, llama a la API
+con `REQUIRE_200=1` y `EXPECTED_MODEL_SOURCE=mlflow`, valida prediction logs y
+corre drift check.
+
+Curl final de demo:
+
+```bash
+curl -s -H "X-API-Key: abcdef12345" \
+  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-01-01&date_end=2026-01-01" | jq
+```
+
+El rango debe existir en `features.pozo_monthly_features`. Con el fixture de ML CI
+el ultimo mes disponible es `2026-01-01`; usar meses futuros no generados devuelve
+404 controlado.
+
+Prediction logs:
+
+```bash
+docker compose exec -T postgres psql -U dwh -d warehouse -c \
+  "select prediction_id, requested_at, id_pozo, status, model_name, model_version, mlflow_run_id, model_source, latency_ms
+   from metadata.prediction_logs order by requested_at desc limit 5;"
+```
+
+Drift check:
+
+```bash
+bash scripts/run-drift-check.sh 2026-01-01
+```
+
+Dagster expone el job `ml_training_job` y el schedule `ml_retraining_monthly` en
+`http://localhost:3002`.
+
+---
+
 ## Ejecucion del pipeline de datos
 
 ### Opcion 1: Dagster UI
@@ -234,6 +286,9 @@ Endpoints principales:
 | `GET` | `/metrics` | Metricas Prometheus. |
 | `GET` | `/docs` | Swagger/OpenAPI. |
 
+`/api/v1/wells` conserva el contrato legacy de Fase 1 con `id_well`. El contrato
+vigente de Adenda 3 para inferencia es `/api/v1/forecast` con `id_pozo`.
+
 Ejemplos:
 
 ```bash
@@ -241,7 +296,7 @@ curl -H "X-API-Key: abcdef12345" \
   "http://localhost:8000/api/v1/wells?date_query=2026-03-15"
 
 curl -H "X-API-Key: abcdef12345" \
-  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-07-01&date_end=2026-12-01"
+  "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-01-01&date_end=2026-01-01"
 ```
 
 El forecast usa features de `features.pozo_monthly_features`, carga el modelo
@@ -278,6 +333,7 @@ Validar Compose:
 ```bash
 docker compose config
 IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
+bash scripts/validate-delivery.sh
 ```
 
 Validaciones manuales recomendadas antes de entregar:
@@ -289,6 +345,7 @@ Validaciones manuales recomendadas antes de entregar:
 - GitHub Actions esta verde en el commit final.
 - GHCR tiene la imagen esperada si se usa deploy desde registry.
 - El workflow manual `AWS Smoke Test` o `scripts/sandbox-smoke.sh` valida la EC2 si se muestra el sandbox.
+- El workflow `ml-ci.yml` valida el fixture chico de ML con Postgres, MLflow, API y drift check.
 - DataHub muestra datasets del warehouse y metadata tecnica en la EC2 dedicada.
 
 Ver [docs/delivery-checklist.md](docs/delivery-checklist.md).
@@ -350,6 +407,10 @@ Smoke test del sandbox:
 bash scripts/sandbox-smoke.sh 16.59.211.99
 ```
 
+`docker-compose.deploy.yml` no incluye Postgres ni MLflow. Por eso el forecast
+model-backed de Adenda 3 no se valida en la EC2: el sandbox AWS valida API y
+monitoreo de Fase 1; la demo ML se valida local con `docker-compose.yml`.
+
 ---
 
 ## Decisiones de arquitectura
@@ -375,6 +436,14 @@ Fase 2:
 - Vistas SQL como semantic layer.
 - DataHub como catalogo de gobierno de datos.
 
+Adenda 3:
+
+- MLflow para tracking, registry y alias `champion`.
+- Postgres como feature store offline.
+- Baseline naive y promotion gate.
+- Serving model-backed por `/api/v1/forecast`.
+- Prediction logs y drift check minimo.
+
 ---
 
 ## Alcance y limitaciones
@@ -392,12 +461,18 @@ Implementado:
 - Metabase para BI.
 - DataHub como catalogo externo de metadata.
 - Feature store offline, training batch y serving predictivo con adapter.
+- MLflow local para tracking, registry y alias `champion`.
+- ML CI con fixture chico y smoke end-to-end.
 - ADRs, runbooks y checklist de entrega.
 
 Limitaciones asumidas:
 
 - El serving es de alcance sandbox academico: no hay alta disponibilidad,
   canary releases ni plataforma enterprise de modelos.
+- El forecast model-backed de Adenda 3 se valida localmente; el compose de deploy
+  AWS no incluye Postgres ni MLflow.
+- El forecast mensual opera sobre periodos existentes en el feature store; no se
+  implementa generacion recursiva de meses futuros.
 - No hay CDC real desde las fuentes publicas.
 - No hay alta disponibilidad ni Kubernetes.
 - No hay multiambiente completo dev/staging/prod.
