@@ -75,10 +75,10 @@ El archivo `.env` debe existir solo en el servidor o en entornos locales control
 
 ## 4. Preparación inicial del servidor
 
-Conectarse a la instancia. La instancia de la entrega es Amazon Linux (`ec2-user`) con IP `16.59.211.99` y llave `tp-soft.pem`:
+Conectarse a la instancia. La instancia de la entrega es Amazon Linux (`ec2-user`) con IP `18.118.45.3` y llave `tp-soft.pem`:
 
 ```bash
-ssh -i tp-soft.pem ec2-user@16.59.211.99
+ssh -i tp-soft.pem ec2-user@18.118.45.3
 ```
 
 Si se reprovisiona sobre una AMI Ubuntu, el usuario es `ubuntu` en vez de `ec2-user`.
@@ -111,7 +111,7 @@ Existe `scripts/initial_setup.sh` para preparar o reconstruir el sandbox siguien
 Uso:
 
 ```bash
-INSTANCE_IP=16.59.211.99 \
+INSTANCE_IP=18.118.45.3 \
 PEM_KEY=./tu-key.pem \
 EC2_USER=ec2-user \
 bash scripts/initial_setup.sh
@@ -187,20 +187,20 @@ curl -f http://localhost:8000/openapi.json
 Desde una máquina externa:
 
 ```bash
-curl -f http://16.59.211.99:8000/openapi.json
+curl -f http://18.118.45.3:8000/openapi.json
 ```
 
 Endpoint funcional:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://16.59.211.99:8000/api/v1/wells?date_query=2026-03-15"
+  "http://18.118.45.3:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 Swagger:
 
 ```text
-http://16.59.211.99:8000/docs
+http://18.118.45.3:8000/docs
 ```
 
 ---
@@ -289,10 +289,10 @@ curl -f http://localhost:9093/-/healthy
 Desde afuera, si los puertos están abiertos:
 
 ```text
-http://16.59.211.99:8000/docs
-http://16.59.211.99:3000
-http://16.59.211.99:9090
-http://16.59.211.99:9093
+http://18.118.45.3:8000/docs
+http://18.118.45.3:3000
+http://18.118.45.3:9090
+http://18.118.45.3:9093
 ```
 
 ---
@@ -302,13 +302,13 @@ http://16.59.211.99:9093
 Desde la máquina local:
 
 ```bash
-bash scripts/sandbox-smoke.sh 16.59.211.99
+bash scripts/sandbox-smoke.sh 18.118.45.3
 ```
 
 O:
 
 ```bash
-bash scripts/sandbox-smoke.sh http://16.59.211.99
+bash scripts/sandbox-smoke.sh http://18.118.45.3
 ```
 
 También existe workflow manual:

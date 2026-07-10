@@ -51,10 +51,10 @@ Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en 
 3. Conectarse por SSH con la llave correspondiente, sin commitear la llave al repo.
 
 ```bash
-ssh -i datahub-oilgas.pem ubuntu@3.143.210.125
+ssh -i datahub-oilgas.pem ubuntu@18.118.110.246
 ```
 
-IP publica vigente de la entrega: `3.143.210.125` (instancia mantenida encendida durante la correccion). Si en el futuro se apaga y prende sin Elastic IP, la IP publica puede cambiar; en ese caso actualizar este runbook y el README.
+IP publica del sandbox opcional: `18.118.110.246`. La instancia es on-demand: DataHub es evidencia complementaria y puede estar apagada sin afectar la validacion local de la entrega. Si se apaga y prende sin Elastic IP, la IP publica puede cambiar; en ese caso actualizar este runbook y el README.
 
 ---
 
@@ -141,7 +141,7 @@ docker update --restart unless-stopped $(docker ps --filter "name=datahub-" -q) 
 La UI queda en:
 
 ```text
-http://3.143.210.125:9002
+http://18.118.110.246:9002
 ```
 
 Credenciales por defecto:
@@ -175,7 +175,7 @@ Si la ingesta devuelve 0 tablas:
 
 ## 9. Validacion UI para la entrega
 
-En `http://3.143.210.125:9002`:
+En `http://18.118.110.246:9002`:
 
 1. Login con `datahub` / `datahub`.
 2. Buscar `produccion`.
@@ -197,7 +197,7 @@ Evidencia minima para la defensa:
 
 ## 10. Apagar para no gastar creditos
 
-Para la entrega la instancia se mantiene **encendida** durante toda la ventana de correccion, asi el profe puede abrir `http://3.143.210.125:9002` cuando quiera.
+Si el equipo decide mostrar el sandbox, la instancia puede dejarse encendida durante la ventana de correccion para que el profe abra `http://18.118.110.246:9002` cuando quiera. No es requisito: la evidencia de DataHub tambien puede mostrarse en el video o con capturas, y la validacion oficial de la entrega es local.
 
 Una vez terminada la correccion, apagar para no gastar creditos:
 

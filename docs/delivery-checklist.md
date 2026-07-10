@@ -1,6 +1,8 @@
-# Checklist de entrega - Adenda 2 + Adenda 3
+# Checklist de entrega - Trabajo integrador (Fase 1 + Adenda 2 + Adenda 3)
 
-Este documento es la verdad operativa para cerrar la entrega. Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+Este documento es la verdad operativa para cerrar la entrega completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 / Adenda 2 (plataforma de datos) y Fase 3 / Adenda 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+
+La validacion obligatoria y reproducible es local con Docker Compose. El sandbox AWS es opcional y complementario: suma evidencia pero no bloquea la entrega.
 
 Responsables por area:
 
@@ -46,14 +48,14 @@ Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su qu
 
 ## 1.1 Instancias e IPs para la demo
 
-IPs vigentes de la entrega (instancias activas durante la correccion). No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
+La validacion oficial es local. Las instancias AWS son sandbox opcional/evidencia complementaria; si estan apagadas, la entrega se valida igual con el stack local. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
 
-| Instancia | Uso | URL/IP a validar | Responsable |
+| Instancia | Uso | URL/IP a validar | Caracter |
 |---|---|---|---|
-| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://16.59.211.99` (`:8000` `:3000` `:9090` `:9093`) | Equipo / I1 |
-| DataHub | Catalogo/governance | `http://3.143.210.125:9002` | I3 |
-| Stack de datos (local) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | I1 + I2 |
-| Stack ML local | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | I1 + I2 + I3 |
+| Stack ML local (obligatorio) | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | Validacion local reproducible |
+| Stack de datos (obligatorio) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | Validacion local reproducible |
+| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://18.118.45.3` (`:8000` `:3000` `:9090` `:9093`) | AWS opcional |
+| DataHub | Catalogo/governance | `http://18.118.110.246:9002` | AWS opcional |
 
 Dagster y Metabase no se exponen en el sandbox: se levantan localmente con `docker compose up`. El profe puede correrlos en su maquina con las instrucciones del README, o verlos en la demo en vivo.
 
@@ -222,13 +224,13 @@ Evidencia minima:
 - `metadata.prediction_logs` tiene una fila `success` con `model_source = mlflow`;
 - drift check corre y muestra `drifted` por feature.
 
-### DataHub
+### DataHub (sandbox AWS opcional)
 
-Validar en la EC2 dedicada antes de grabar o mostrar la demo:
+Validar en la EC2 dedicada antes de grabar o mostrar la demo, solo si se muestra el sandbox:
 
 | Dato | Valor |
 |---|---|
-| URL final | `http://3.143.210.125:9002` |
+| URL cuando esta encendida | `http://18.118.110.246:9002` |
 | Como se levanta | EC2 dedicada. Por disco acotado el CLI `datahub docker quickstart` no entra; se levanta el compose cacheado: `cd ~/.datahub/quickstart && COMPOSE_PROFILES=quickstart DATAHUB_VERSION=v1.5.0.6 docker compose -p datahub -f docker-compose.yml --env-file .local-secrets.env up -d --pull never` |
 | Credenciales | `datahub` / `datahub` |
 | Ingesta | `datahub ingest -c datahub/recipe.postgres.yml` |
@@ -287,13 +289,14 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | `docs/feature-store.md` | Presente |
 | `docs/model-training.md` | Presente |
 | `docs/inference-serving.md` | Presente |
-| `docs/demo-video-adenda3.md` | Presente |
 
 ---
 
 ## 5. Checklist final de entrega
 
-### Stack base
+### Validacion local obligatoria (reproducible)
+
+#### Fase 1 - stack base
 
 - [ ] `docker compose up --build -d` levanta sin errores.
 - [ ] Postgres queda healthy.
@@ -302,8 +305,9 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Prometheus abre en `:9090`.
 - [ ] Dagster abre en `:3002`.
 - [ ] Metabase abre en `:3001`.
+- [ ] `ruff check .`, `pytest -q` y `docker compose config` pasan.
 
-### Pipeline de datos
+#### Fase 2 - pipeline de datos
 
 - [ ] Bronze tiene filas.
 - [ ] dbt construye Silver/Gold/Semantic.
@@ -311,34 +315,46 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Dagster muestra corrida o logs de la orquestacion.
 - [ ] Metabase muestra dashboard con datos.
 - [ ] dbt Docs muestra lineage.
-- [ ] DataHub abre en `:9002` y muestra datasets del warehouse.
 
-### Documentacion
-
-- [ ] README refleja el estado real.
-- [ ] ADRs tienen alternativas y trade-offs.
-- [ ] Runbooks tienen pasos, validacion y que hacer si falla.
-- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas.
-- [ ] No se promete produccion real ni alta disponibilidad.
-
-### Adenda 3
+#### Fase 3 / Adenda 3 - ML Engineering
 
 - [ ] `docker compose down -v` ejecutado al menos una vez despues del cambio de MLflow.
+- [ ] Feature store poblado: `features.pozo_monthly_features` con grano `id_pozo + periodo_mes`.
+- [ ] No-leakage verificado: `pytest tests/test_ml_features.py -q` pasa.
+- [ ] Training corre: `python -m ml.train` registra run y artefactos.
+- [ ] Baseline `prod_pet_lag_1` evaluado sobre las mismas filas de test que el modelo.
+- [ ] Promotion gate decide: primer modelo se promueve; un candidato que no mejora no mueve el alias.
+- [ ] Retraining con Dagster: job `ml_training_job` repetible para un dia dado y schedule `ml_retraining_monthly` visibles.
+- [ ] MLflow tracking muestra runs con parametros y metricas comparables.
+- [ ] Model Registry tiene el modelo `oilgas_forecaster` versionado.
+- [ ] Alias `champion` apunta a la version promovida.
 - [ ] `bash scripts/mlflow-smoke.sh` pasa.
-- [ ] `bash scripts/data-ml-ci-smoke.sh` pasa completo.
-- [ ] MLflow muestra run, modelo registrado y alias `champion`.
+- [ ] `bash scripts/data-ml-ci-smoke.sh` pasa completo (requiere stack limpio).
 - [ ] `/api/v1/forecast` devuelve 200 con `model.source = mlflow`.
-- [ ] `metadata.prediction_logs` registra `status = success` y `model_source = mlflow`.
-- [ ] `bash scripts/run-drift-check.sh 2026-01-01` corre.
-- [ ] `bash scripts/validate-delivery.sh` pasa.
+- [ ] `metadata.prediction_logs` registra filas `success` y `error` con `model_source`.
+- [ ] `bash scripts/run-drift-check.sh 2026-01-01` corre y reporta `drifted` por feature.
+- [ ] ML CI (`ml-ci.yml`) en verde, incluida la validacion de Dagster (`ml_training_job` + `ml_retraining_monthly`).
+- [ ] `bash scripts/validate-delivery.sh` pasa (baja volumenes al final: no correrlo en medio de una demo).
 
-### Entrega final
+#### Documentacion
 
-- [ ] `develop` tiene todos los merges.
-- [ ] CI en verde.
+- [ ] README refleja el estado real y tiene la seccion "Arquitectura completa de la solucion".
+- [ ] ADRs tienen alternativas y trade-offs; el indice cubre Adenda 3.
+- [ ] Runbooks tienen pasos, validacion y que hacer si falla.
+- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas como sandbox opcional.
+- [ ] No se promete produccion real ni alta disponibilidad.
+
+### Sandbox AWS opcional (complementario)
+
 - [ ] Imagen GHCR publicada para el commit final si se usa deploy desde registry.
 - [ ] Smoke test de AWS ejecutado por script o workflow manual si se muestra EC2.
-- [ ] Merge a `main`.
-- [ ] Tag de release `v0.2.0` creado en `main`.
+- [ ] DataHub abre en `:9002` y muestra datasets del warehouse si se muestra la EC2 dedicada.
+
+### Cierre de entrega
+
+- [ ] Video de Adenda 3 grabado (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
+- [ ] `develop` tiene todos los merges y CI en verde.
+- [ ] PR `develop -> main` abierto, revisado y mergeado.
+- [ ] Tag de release `v0.3.0` creado en `main` (v0.1.0 y v0.2.0 ya existen de fases anteriores).
 - [ ] Zip armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
-- [ ] Zip armado y revisado contra la lista de exclusiones.
+- [ ] Zip revisado contra la lista de exclusiones.

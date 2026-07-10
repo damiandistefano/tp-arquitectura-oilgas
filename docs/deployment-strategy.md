@@ -42,8 +42,8 @@ Estos endpoints están activos en cualquier ambiente donde corra la API.
 En el sandbox EC2 son accesibles como:
 
 ```text
-http://16.59.211.99:8000/docs
-http://16.59.211.99:8000/openapi.json
+http://18.118.45.3:8000/docs
+http://18.118.45.3:8000/openapi.json
 ```
 
 No requieren autenticación. Los endpoints funcionales sí requieren `X-API-Key: abcdef12345`.
@@ -152,15 +152,15 @@ curl -f http://localhost:3000/api/health
 Para validar desde afuera:
 
 ```bash
-curl -f http://16.59.211.99:8000/openapi.json
-curl -f http://16.59.211.99:3000/api/health
+curl -f http://18.118.45.3:8000/openapi.json
+curl -f http://18.118.45.3:3000/api/health
 ```
 
 Para validar endpoint protegido:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://16.59.211.99:8000/api/v1/wells?date_query=2026-03-15"
+  "http://18.118.45.3:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 ---
