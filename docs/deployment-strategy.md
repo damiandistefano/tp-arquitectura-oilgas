@@ -27,7 +27,7 @@ commit -> build -> imagen Docker -> deploy
 
 Para despliegues reproducibles se recomienda usar el commit SHA, no `latest`.
 
-La imagen de la API usa `python:3.11-alpine` para reducir peso del artefacto y consumo de disco/red en el sandbox. Las dependencias nativas se instalan durante el build y se eliminan antes de publicar la imagen final.
+La imagen de la API usa `python:3.11-slim` para mantener compatibilidad con dependencias de serving ML y reducir friccion operativa en el sandbox. Las dependencias nativas se instalan durante el build.
 
 ---
 
@@ -39,11 +39,11 @@ La API expone por defecto (sin configuración adicional):
 - `/openapi.json` — especificación OpenAPI en JSON.
 
 Estos endpoints están activos en cualquier ambiente donde corra la API.
-En el sandbox EC2 son accesibles como:
+En una instancia propia (reemplazando `<sandbox-api-host>` por su IP o hostname) son accesibles como:
 
 ```text
-http://16.59.211.99:8000/docs
-http://16.59.211.99:8000/openapi.json
+http://<sandbox-api-host>:8000/docs
+http://<sandbox-api-host>:8000/openapi.json
 ```
 
 No requieren autenticación. Los endpoints funcionales sí requieren `X-API-Key: abcdef12345`.
@@ -89,7 +89,7 @@ Se considera aceptable porque:
 
 ## Ambiente objetivo
 
-El ambiente objetivo es una instancia AWS EC2 usada como sandbox.
+El ambiente objetivo es una instancia AWS EC2 usada como sandbox. El sandbox usado durante el desarrollo fue temporal y está apagado para la entrega: la evaluación oficial es local con Docker Compose y no requiere servicios públicos activos.
 
 Servicios del stack completo:
 
@@ -104,6 +104,20 @@ Servicios del stack completo:
 El stack completo se valida con `docker-compose.yml`.
 
 El flujo reproducible de API desde GHCR se valida con `docker-compose.deploy.yml`.
+
+## Alcance AWS vs demo local de Adenda 3
+
+`docker-compose.deploy.yml` no incluye PostgreSQL ni MLflow. Por lo tanto, el
+forecast model-backed de Adenda 3 no funciona en la EC2 desplegada con ese
+compose: faltan el feature store `features.pozo_monthly_features`, el tracking
+server y el registry con alias `champion`.
+
+El sandbox AWS valida el alcance de Fase 1: API, Swagger/OpenAPI, contenedor de
+API publicado, Prometheus, Grafana, Alertmanager y smoke operativo. La demo de
+Adenda 3 se valida localmente con `docker-compose.yml` completo levantando
+`postgres`, `mlflow`, `api` y `dagster`.
+
+No se implementa Adenda 3 en AWS en esta entrega.
 
 ---
 
@@ -138,15 +152,15 @@ curl -f http://localhost:3000/api/health
 Para validar desde afuera:
 
 ```bash
-curl -f http://16.59.211.99:8000/openapi.json
-curl -f http://16.59.211.99:3000/api/health
+curl -f http://<sandbox-api-host>:8000/openapi.json
+curl -f http://<sandbox-api-host>:3000/api/health
 ```
 
 Para validar endpoint protegido:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://16.59.211.99:8000/api/v1/wells?date_query=2026-03-15"
+  "http://<sandbox-api-host>:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 ---

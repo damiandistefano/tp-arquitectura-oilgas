@@ -1,12 +1,14 @@
-# Checklist de entrega - Adenda 2
+# Checklist de entrega - Trabajo integrador (Fase 1 + Fase 2 + Fase 3)
 
-Este documento es la verdad operativa para cerrar la entrega. Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+Este documento es la verdad operativa para cerrar la entrega completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 (plataforma de datos) y Fase 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+
+La validacion oficial y reproducible es local con Docker Compose: no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega.
 
 Responsables por area:
 
-- I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill.
-- I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase.
-- I3: governance/DataHub, README, ADR review, runbooks, checklist final y evidencia de entrega.
+- I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill, feature store, training y retraining.
+- I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase, serving predictivo y prediction logs.
+- I3: governance/DataHub, MLflow, CI ML, drift, README, ADR review, runbooks, checklist final y evidencia de entrega.
 
 ---
 
@@ -25,21 +27,37 @@ Responsables por area:
 | DataHub / governance | I3 | Stack externo en EC2 dedicada | UI `:9002`, datasets del warehouse, columnas/tipos y metadata tecnica |
 | Documentacion | I3 + equipo | Lista para entrega | README, ADRs, runbooks, contratos y checklist coherentes |
 
+### Fase 3 - ML Engineering
+
+| Componente | Responsable | Estado para entrega | Evidencia esperada |
+|---|---|---|---|
+| Feature store offline | I1 | Listo local | `features.pozo_monthly_features` con grano `id_pozo + periodo_mes` |
+| No-leakage temporal | I1 | Cubierto por tests | `pytest tests/test_ml_features.py -q` |
+| Training + baseline + promotion gate | I1 | Listo | `ml.train`, baseline `prod_pet_lag_1`, gate con `promoted=true` en fixture |
+| Retraining Dagster | I1 | Listo local | Job `ml_training_job` y schedule `ml_retraining_monthly` |
+| MLflow tracking + registry + alias | I3 | Listo local | Run en experimento `oilgas_forecaster`, modelo registrado y alias `champion` |
+| API forecast model-backed | I2 | Listo local | `/api/v1/forecast` responde 200 con `model.source = mlflow` |
+| Prediction logs | I2 | Listo | Filas en `metadata.prediction_logs` con `status`, `model_source`, latencia y metadata |
+| Drift check | I3 | Listo | `bash scripts/run-drift-check.sh 2026-01-01` emite JSON con `drifted` por feature |
+| ML CI | I3 | Listo | Workflow `.github/workflows/ml-ci.yml` y `scripts/data-ml-ci-smoke.sh` |
+| Validacion final | I3 | Lista | `bash scripts/validate-delivery.sh` |
+
 Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su quickstart es pesado. Se opera con una EC2 dedicada y on-demand; ver [docs/runbooks/datahub.md](runbooks/datahub.md).
 
 ---
 
-## 1.1 Instancias e IPs para la demo
+## 1.1 Entornos de la demo
 
-IPs vigentes de la entrega (instancias activas durante la correccion). No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
+La validacion oficial es local; no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega; los runbooks quedan con placeholders por si se quiere reproducirlos en una instancia propia. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
 
-| Instancia | Uso | URL/IP a validar | Responsable |
+| Entorno | Uso | URL a validar | Caracter |
 |---|---|---|---|
-| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://16.59.211.99` (`:8000` `:3000` `:9090` `:9093`) | Equipo / I1 |
-| DataHub | Catalogo/governance | `http://3.143.210.125:9002` | I3 |
-| Stack de datos (local) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | I1 + I2 |
+| Stack ML local (obligatorio) | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | Validacion local reproducible |
+| Stack de datos (obligatorio) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | Validacion local reproducible |
+| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://<sandbox-api-host>` (`:8000` `:3000` `:9090` `:9093`) | Historico, apagado para la entrega |
+| DataHub | Catalogo/governance | `http://<datahub-host>:9002` | Historico, apagado para la entrega |
 
-Dagster y Metabase no se exponen en el sandbox: se levantan localmente con `docker compose up`. El profe puede correrlos en su maquina con las instrucciones del README, o verlos en la demo en vivo.
+El profe puede levantar todo el stack local en su maquina con las instrucciones del README, o verlo en la demo en vivo / video.
 
 ---
 
@@ -183,13 +201,36 @@ dbt docs serve
 
 Validar modelos, columnas, tests y lineage.
 
-### DataHub
+### Fase 3 local
 
-Validar en la EC2 dedicada antes de grabar o mostrar la demo:
+Primera corrida despues del cambio de MLflow:
+
+```bash
+docker compose down -v
+cp .env.example .env
+mkdir -p ml_artifacts
+docker compose up --build -d postgres mlflow api dagster
+set -a; . ./.env; set +a
+bash scripts/mlflow-smoke.sh
+bash scripts/data-ml-ci-smoke.sh
+```
+
+Evidencia minima:
+
+- training registra un run en MLflow y una version de `oilgas_forecaster`;
+- gate imprime `promoted: true`;
+- alias `champion` queda verificado por el smoke;
+- forecast devuelve HTTP 200 y `model.source = mlflow`;
+- `metadata.prediction_logs` tiene una fila `success` con `model_source = mlflow`;
+- drift check corre y muestra `drifted` por feature.
+
+### DataHub (sandbox historico, apagado para la entrega)
+
+Solo aplica si se decide reproducir el sandbox en una instancia propia; la evidencia de la entrega es el video/capturas:
 
 | Dato | Valor |
 |---|---|
-| URL final | `http://3.143.210.125:9002` |
+| URL del host propio | `http://<datahub-host>:9002` |
 | Como se levanta | EC2 dedicada. Por disco acotado el CLI `datahub docker quickstart` no entra; se levanta el compose cacheado: `cd ~/.datahub/quickstart && COMPOSE_PROFILES=quickstart DATAHUB_VERSION=v1.5.0.6 docker compose -p datahub -f docker-compose.yml --env-file .local-secrets.env up -d --pull never` |
 | Credenciales | `datahub` / `datahub` |
 | Ingesta | `datahub ingest -c datahub/recipe.postgres.yml` |
@@ -219,6 +260,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | 0009-0012 | Presentes, I2: Medallion, Gold, calidad, Semantic |
 | 0013 | Presente, I3: DataHub / governance |
 | 0014 | Presente, I2: Metabase / BI |
+| 0015-0023 | Presentes, Fase 3: forecasting, MLflow, feature store, gate, retraining, serving, ML CI, prediction logs y drift |
 
 ### Runbooks
 
@@ -240,11 +282,21 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | `docs/data-model.md` | Presente |
 | `docs/quality-checks.md` | Presente |
 
+### ML Engineering
+
+| Archivo | Estado |
+|---|---|
+| `docs/feature-store.md` | Presente |
+| `docs/model-training.md` | Presente |
+| `docs/inference-serving.md` | Presente |
+
 ---
 
 ## 5. Checklist final de entrega
 
-### Stack base
+### Validacion local obligatoria (reproducible)
+
+#### Fase 1 - stack base
 
 - [ ] `docker compose up --build -d` levanta sin errores.
 - [ ] Postgres queda healthy.
@@ -253,8 +305,9 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Prometheus abre en `:9090`.
 - [ ] Dagster abre en `:3002`.
 - [ ] Metabase abre en `:3001`.
+- [ ] `ruff check .`, `pytest -q` y `docker compose config` pasan.
 
-### Pipeline de datos
+#### Fase 2 - pipeline de datos
 
 - [ ] Bronze tiene filas.
 - [ ] dbt construye Silver/Gold/Semantic.
@@ -262,23 +315,46 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Dagster muestra corrida o logs de la orquestacion.
 - [ ] Metabase muestra dashboard con datos.
 - [ ] dbt Docs muestra lineage.
-- [ ] DataHub abre en `:9002` y muestra datasets del warehouse.
 
-### Documentacion
+#### Fase 3 - ML Engineering
 
-- [ ] README refleja el estado real.
-- [ ] ADRs tienen alternativas y trade-offs.
+- [ ] `docker compose down -v` ejecutado al menos una vez despues del cambio de MLflow.
+- [ ] Feature store poblado: `features.pozo_monthly_features` con grano `id_pozo + periodo_mes`.
+- [ ] No-leakage verificado: `pytest tests/test_ml_features.py -q` pasa.
+- [ ] Training corre: `python -m ml.train` registra run y artefactos.
+- [ ] Baseline `prod_pet_lag_1` evaluado sobre las mismas filas de test que el modelo.
+- [ ] Promotion gate decide: primer modelo se promueve; un candidato que no mejora no mueve el alias.
+- [ ] Retraining con Dagster: job `ml_training_job` repetible para un dia dado y schedule `ml_retraining_monthly` visibles.
+- [ ] MLflow tracking muestra runs con parametros y metricas comparables.
+- [ ] Model Registry tiene el modelo `oilgas_forecaster` versionado.
+- [ ] Alias `champion` apunta a la version promovida.
+- [ ] `bash scripts/mlflow-smoke.sh` pasa.
+- [ ] `bash scripts/data-ml-ci-smoke.sh` pasa completo (requiere stack limpio).
+- [ ] `/api/v1/forecast` devuelve 200 con `model.source = mlflow`.
+- [ ] `metadata.prediction_logs` registra filas `success` y `error` con `model_source`.
+- [ ] `bash scripts/run-drift-check.sh 2026-01-01` corre y reporta `drifted` por feature.
+- [ ] ML CI (`ml-ci.yml`) en verde, incluida la validacion de Dagster (`ml_training_job` + `ml_retraining_monthly`).
+- [ ] `bash scripts/validate-delivery.sh` pasa (baja volumenes al final: no correrlo en medio de una demo).
+
+#### Documentacion
+
+- [ ] README refleja el estado real y tiene la seccion "Arquitectura completa de la solucion".
+- [ ] ADRs tienen alternativas y trade-offs; el indice cubre Fase 3.
 - [ ] Runbooks tienen pasos, validacion y que hacer si falla.
-- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas.
+- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas como sandbox opcional.
 - [ ] No se promete produccion real ni alta disponibilidad.
 
-### Entrega final
+### Sandbox AWS (historico, solo si se reproduce en instancia propia)
 
-- [ ] `develop` tiene todos los merges.
-- [ ] CI en verde.
 - [ ] Imagen GHCR publicada para el commit final si se usa deploy desde registry.
-- [ ] Smoke test de AWS ejecutado por script o workflow manual si se muestra EC2.
-- [ ] Merge a `main`.
-- [ ] Tag de release `v0.2.0` creado en `main`.
+- [ ] Smoke test de AWS ejecutado por script o workflow manual si se reproduce el sandbox.
+- [ ] DataHub abre en `:9002` y muestra datasets del warehouse si se reproduce la EC2 dedicada.
+
+### Cierre de entrega
+
+- [ ] Video de Fase 3 grabado (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
+- [ ] `develop` tiene todos los merges y CI en verde.
+- [ ] PR `develop -> main` abierto, revisado y mergeado.
+- [ ] Tag de release `v0.3.0` creado en `main` (v0.1.0 y v0.2.0 ya existen de fases anteriores).
 - [ ] Zip armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
-- [ ] Zip armado y revisado contra la lista de exclusiones.
+- [ ] Zip revisado contra la lista de exclusiones.

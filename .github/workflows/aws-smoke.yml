@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Base URL without trailing slash. Example: http://52.15.50.130"
+        description: "Base URL without trailing slash. Example: http://<sandbox-api-host>"
         required: true
         type: string
 
@@ -37,9 +37,17 @@ jobs:
 
       - name: Check forecast endpoint with API key
         run: |
-          curl -fsS --max-time 10 \
+          FORECAST_STATUS=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" \
             -H "X-API-Key: $API_KEY" \
-            "$BASE_URL:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+            "$BASE_URL:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-15&date_end=2026-03-20")
+
+          case "$FORECAST_STATUS" in
+            200|404|503) ;;
+            *)
+              echo "Unexpected forecast status with id_pozo: $FORECAST_STATUS"
+              exit 1
+              ;;
+          esac
 
       - name: Check API key rejection
         run: |

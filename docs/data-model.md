@@ -40,6 +40,56 @@ Dimensiones principales:
 - gold.dim_area
 - gold.dim_yacimiento
 
+### Diagrama estrella
+
+```mermaid
+erDiagram
+    "gold.dim_fecha" ||--o{ "gold.fact_produccion_pozo" : "fecha_mes"
+    "gold.dim_pozo" ||--o{ "gold.fact_produccion_pozo" : "pozo_id"
+    "gold.dim_operadora" ||--o{ "gold.fact_produccion_pozo" : "operadora_id"
+    "gold.dim_area" ||--o{ "gold.fact_produccion_pozo" : "area_id"
+    "gold.dim_yacimiento" ||--o{ "gold.fact_produccion_pozo" : "yacimiento_id"
+
+    "gold.fact_produccion_pozo" {
+        text produccion_id
+        date fecha_mes
+        text pozo_id
+        text operadora_id
+        text area_id
+        text yacimiento_id
+        numeric prod_pet
+        numeric prod_gas
+        numeric prod_agua
+    }
+
+    "gold.dim_fecha" {
+        date fecha_mes
+        int anio
+        int mes
+        text periodo
+    }
+
+    "gold.dim_pozo" {
+        text pozo_id
+        text idpozo
+        text cuenca
+        text provincia
+    }
+
+    "gold.dim_operadora" {
+        text operadora_id
+        text idempresa
+    }
+
+    "gold.dim_area" {
+        text area_id
+    }
+
+    "gold.dim_yacimiento" {
+        text yacimiento_id
+    }
+```
+
 ## Surrogate keys
 
 Las claves surrogate se generan con md5 sobre identificadores naturales de la fuente.

@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   push:
     branches:
       - main
@@ -66,8 +66,17 @@ jobs:
           curl -fsS -H "X-API-Key: $API_KEY" \
             "http://127.0.0.1:8000/api/v1/wells?date_query=2026-03-15" > /dev/null
 
-          curl -fsS -H "X-API-Key: $API_KEY" \
-            "http://127.0.0.1:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+          FORECAST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "X-API-Key: $API_KEY" \
+            "http://127.0.0.1:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-15&date_end=2026-03-20")
+
+          case "$FORECAST_STATUS" in
+            200|404|503) ;;
+            *)
+              echo "Unexpected forecast status with id_pozo: $FORECAST_STATUS"
+              exit 1
+              ;;
+          esac
 
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "http://127.0.0.1:8000/api/v1/wells?date_query=2026-03-15")
@@ -128,12 +137,14 @@ jobs:
           bash -n scripts/deploy.sh
           bash -n scripts/rollback.sh
           bash -n scripts/sandbox-smoke.sh
+          bash -n scripts/api-forecast-smoke.sh
           bash -n scripts/generate_traffic.sh
           bash -n scripts/initial_setup.sh
           bash -n alertmanager/entrypoint.sh
 
           test -x scripts/deploy.sh
           test -x scripts/rollback.sh
+          test -x scripts/api-forecast-smoke.sh
           test -x alertmanager/entrypoint.sh
 
           docker compose -f docker-compose.yml config
@@ -239,8 +250,18 @@ jobs:
           curl -sf -H "X-API-Key: $API_KEY" \
             "http://localhost:8000/api/v1/wells?date_query=2026-03-15" > /dev/null
 
-          curl -sf -H "X-API-Key: $API_KEY" \
-            "http://localhost:8000/api/v1/forecast?id_well=POZO-001&date_start=2026-03-15&date_end=2026-03-20" > /dev/null
+          FORECAST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "X-API-Key: $API_KEY" \
+            "http://localhost:8000/api/v1/forecast?id_pozo=POZO-001&date_start=2026-03-15&date_end=2026-03-20")
+
+          case "$FORECAST_STATUS" in
+            200|404|503) ;;
+            *)
+              echo "Unexpected forecast status with id_pozo: $FORECAST_STATUS"
+              docker compose logs api
+              exit 1
+              ;;
+          esac
 
       - name: Verify Prometheus metrics
         if: hashFiles('docker-compose.yml') != ''

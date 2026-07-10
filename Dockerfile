@@ -1,21 +1,21 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
+COPY requirements.txt requirements-ml.txt ./
 
-RUN apk add --no-cache libpq \
-    && apk add --no-cache --virtual .build-deps gcc musl-dev postgresql-dev \
-    && pip install --no-cache-dir -r requirements.txt \
-    && apk del .build-deps
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt -r requirements-ml.txt
 
 COPY app ./app
 
-RUN addgroup -S app \
-    && adduser -S -G app appuser \
+RUN addgroup --system app \
+    && adduser --system --ingroup app appuser \
     && chown -R appuser:app /app
 
 USER appuser

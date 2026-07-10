@@ -56,6 +56,22 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ---
 
+## ADRs de Adenda 3 - ML Engineering
+
+| # | Titulo | Estado | Area |
+|---|---|---|---|
+| [0015](0015-definir-target-y-grano-de-forecasting.md) | Definir target y grano de forecasting | Aceptado | Modelo |
+| [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Usar MLflow para tracking y registry | Aceptado | Tracking |
+| [0017](0017-usar-postgres-como-feature-store.md) | Usar Postgres como feature store | Aceptado | Feature store |
+| [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | Definir modelo, baseline y gate de promocion | Aceptado | Modelo |
+| [0019](0019-orquestar-retraining-con-dagster-vs-airflow.md) | Orquestar el retraining con Dagster | Aceptado | Orquestacion |
+| [0020](0020-servir-modelo-con-fastapi-feature-enrichment-y-adapter.md) | Servir modelo con FastAPI, feature enrichment y adapter | Aceptado | Model serving |
+| [0021](0021-ci-con-fixture-chico-para-pipeline-ml.md) | CI con fixture chico para el pipeline de ML | Aceptado | CI/CD |
+| [0022](0022-registrar-prediction-logs-en-postgres.md) | Registrar prediction logs en Postgres | Aceptado | Observabilidad |
+| [0023](0023-drift-check-minimo-sin-monitoring-productivo.md) | Drift check minimo, sin monitoring productivo | Aceptado | Observabilidad |
+
+---
+
 ## Cobertura actual contra Adenda 2
 
 | Decision pedida o esperada | ADR que la cubre | Nota |
@@ -70,6 +86,23 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 | Gobierno de datos y catalogo | 0013 | DataHub en EC2 dedicada, comparado contra OpenMetadata, Amundsen y dbt Docs. |
 | BI para usuarios no tecnicos | 0014 | Metabase, comparado contra Grafana y Superset. |
 
+## Cobertura contra Adenda 3
+
+| Requerimiento / decision Fase 3 | ADR que lo cubre | Evidencia |
+|---|---|---|
+| Feature store persistido y usado en inferencia | [0017](0017-usar-postgres-como-feature-store.md) | Schema `features` (`postgres-init/02_features_schema.sql`), `ml/build_features.py`, lookup de inferencia en `app/feature_lookup.py` |
+| Training reproducible (target, grano y contrato) | [0015](0015-definir-target-y-grano-de-forecasting.md), [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | `docs/contracts.md`, `ml/train.py` con split temporal y baseline `prod_pet_lag_1` |
+| Validation / promotion gate | [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | `ml/promotion_gate.py`, `gate_decision.json` por run, assert `promoted=true` en `scripts/data-ml-ci-smoke.sh` |
+| Orquestacion / retraining recurrente y por dia dado | [0019](0019-orquestar-retraining-con-dagster-vs-airflow.md) | `dagster/dwh_pipeline/definitions.py` (`ml_training_job`, `ml_retraining_monthly`), `scripts/retrain-model.sh` |
+| Experiment tracking | [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Servicio `mlflow` en `docker-compose.yml`, runs logueados por `ml/train.py`, `scripts/mlflow-smoke.sh` |
+| Model registry versionado | [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Modelo `oilgas_forecaster` con alias `champion`, verificacion de alias en `scripts/data-ml-ci-smoke.sh` |
+| API serving del modelo validado | [0020](0020-servir-modelo-con-fastapi-feature-enrichment-y-adapter.md) | `app/api.py` (`/api/v1/forecast`), adapter `app/model_registry.py` con fallback visible, `scripts/api-forecast-smoke.sh` |
+| Prediction logs | [0022](0022-registrar-prediction-logs-en-postgres.md) | `app/prediction_logging.py`, tabla `metadata.prediction_logs` |
+| Drift / observabilidad ML | [0023](0023-drift-check-minimo-sin-monitoring-productivo.md) | `ml/drift_check.py` (z-score y `drifted` por feature), `scripts/run-drift-check.sh`, `features.feature_reference_stats` |
+| CI/CD del pipeline ML | [0021](0021-ci-con-fixture-chico-para-pipeline-ml.md) | `.github/workflows/ml-ci.yml`, `scripts/data-ml-ci-smoke.sh`, fixture `tests/fixtures/ml_ci_fixture.sql` |
+
 ## Criterio de cierre
 
-Los ADRs cubren las decisiones obligatorias de la Fase 2 y tambien dejan documentado el trade-off de BI. La recomendacion para la entrega es no sumar ADRs nuevos salvo que haya una decision implementada y evidencia concreta para defenderla.
+Los ADRs cubren las decisiones obligatorias de Fase 2 y Adenda 3. Para la entrega
+solo deberian sumarse ADRs nuevos si aparece una decision tecnica implementada,
+con trade-offs reales y evidencia concreta para defenderla.
