@@ -2,7 +2,7 @@
 
 Quién lo ejecuta y cuándo: integrante responsable de operación, una vez que el deploy en una EC2 propia está activo.
 
-Este runbook sirve para validar que un sandbox de Fase 1 desplegado según [deploy-aws.md](deploy-aws.md) responde correctamente. El sandbox usado durante el desarrollo está apagado para la entrega: la evaluación oficial es local y este runbook usa el placeholder `<sandbox-api-host>` (reemplazar por la IP o hostname de la instancia propia).
+Este runbook sirve para validar que un sandbox de Fase 1 desplegado según [deploy-aws.md](deploy-aws.md) responde correctamente. El sandbox es un prototipo de despliegue y puede estar apagado: la validación reproducible del proyecto es local, y este runbook usa el placeholder `<sandbox-api-host>` (reemplazar por la IP o hostname de la instancia propia).
 
 ---
 
@@ -72,7 +72,7 @@ Como alternativa desde CI, el workflow `.github/workflows/aws-smoke.yml` corre c
 
 ## 4. Checklist manual
 
-Completar tras el smoke test para dejar evidencia de entrega.
+Completar tras el smoke test para dejar evidencia de la validación.
 
 ### API
 
@@ -182,7 +182,7 @@ Para troubleshooting más detallado de Prometheus, Grafana y Alertmanager, ver [
 
 ## 8. Evidencia final
 
-Completar antes de entregar:
+Completar antes de cerrar un release:
 
 | Item | Estado | Notas |
 |---|---|---|
@@ -191,11 +191,11 @@ Completar antes de entregar:
 | Screenshot de Prometheus targets | [ ] | `oilgas-api` en UP. |
 | Screenshot de reglas de alerta | [ ] | Mostrar reglas cargadas. |
 | Screenshot de Alertmanager | [ ] | Estado limpio o alerta de prueba. |
-| URLs del sandbox si se reproduce | [ ] | Ver sección "Evaluacion local y sandbox AWS historico" en README.md. Placeholders: API/monitoreo `<sandbox-api-host>`, DataHub `<datahub-host>`. El sandbox está apagado para la entrega; la validación oficial es local. |
+| URLs del sandbox si se reproduce | [ ] | Ver sección "Validacion local y sandbox cloud" en README.md. Placeholders: API/monitoreo `<sandbox-api-host>`, DataHub `<datahub-host>`. El sandbox puede estar apagado; la validación reproducible es local. |
 
 ---
 
-## 9. Release tag de Adenda 2
+## 9. Release tag de Fase 2 (historico)
 
 Una vez que `develop` esté mergeado a `main` y CI esté verde:
 

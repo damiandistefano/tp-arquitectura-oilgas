@@ -49,8 +49,8 @@ La solución queda más larga que una tabla única, pero también queda más ord
 
 Esto ayuda a probar, explicar y depurar. Por ejemplo, si una métrica del dashboard está mal, se puede revisar si el error aparece en Gold, Silver o ya venía desde Bronze.
 
-La contra es que hay más archivos y más pasos. Para esta entrega nos parece aceptable porque la separación por capas era parte importante de la adenda.
+La contra es que hay más archivos y más pasos. Para este alcance nos parece aceptable porque la separación por capas era parte importante del diseño.
 
 ## Fuera de alcance
 
-No armamos un data lake real ni almacenamiento en S3/Parquet. Todo queda en PostgreSQL porque alcanza para el alcance académico del TP.
+No armamos un data lake real ni almacenamiento en S3/Parquet. Todo queda en PostgreSQL porque cubre el alcance del proyecto.

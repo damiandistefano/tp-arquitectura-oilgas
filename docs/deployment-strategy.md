@@ -83,13 +83,13 @@ Se considera aceptable porque:
 - no hay usuarios productivos reales;
 - el riesgo operativo es bajo;
 - el objetivo principal es validar API, CI/CD, Docker, GHCR, monitoreo y operación básica;
-- una estrategia más compleja agregaría overhead innecesario para esta adenda.
+- una estrategia más compleja agregaría overhead innecesario para este alcance.
 
 ---
 
 ## Ambiente objetivo
 
-El ambiente objetivo es una instancia AWS EC2 usada como sandbox. El sandbox usado durante el desarrollo fue temporal y está apagado para la entrega: la evaluación oficial es local con Docker Compose y no requiere servicios públicos activos.
+El ambiente objetivo es una instancia AWS EC2 usada como sandbox. El sandbox es un prototipo de despliegue y puede estar apagado: la validación reproducible del proyecto es local con Docker Compose y no requiere servicios públicos activos.
 
 Servicios del stack completo:
 
@@ -105,19 +105,19 @@ El stack completo se valida con `docker-compose.yml`.
 
 El flujo reproducible de API desde GHCR se valida con `docker-compose.deploy.yml`.
 
-## Alcance AWS vs demo local de Adenda 3
+## Alcance AWS vs demo local de la capa ML (Fase 3)
 
 `docker-compose.deploy.yml` no incluye PostgreSQL ni MLflow. Por lo tanto, el
-forecast model-backed de Adenda 3 no funciona en la EC2 desplegada con ese
+forecast model-backed de Fase 3 no funciona en la EC2 desplegada con ese
 compose: faltan el feature store `features.pozo_monthly_features`, el tracking
 server y el registry con alias `champion`.
 
 El sandbox AWS valida el alcance de Fase 1: API, Swagger/OpenAPI, contenedor de
 API publicado, Prometheus, Grafana, Alertmanager y smoke operativo. La demo de
-Adenda 3 se valida localmente con `docker-compose.yml` completo levantando
+la capa ML se valida localmente con `docker-compose.yml` completo levantando
 `postgres`, `mlflow`, `api` y `dagster`.
 
-No se implementa Adenda 3 en AWS en esta entrega.
+La capa de ML Engineering no se despliega en AWS en este alcance.
 
 ---
 
@@ -215,7 +215,7 @@ No se implementan:
 - deploy automático por SSH desde GitHub Actions hacia EC2;
 - performance testing formal con Locust.
 
-Estas estrategias se consideran fuera del alcance de esta adenda. Son válidas para una fase posterior si el sistema pasa de mock técnico a servicio productivo real.
+Estas estrategias se consideran fuera del alcance de esta etapa. Son válidas para una fase posterior si el sistema pasa de prototipo técnico a servicio productivo real.
 
 ---
 

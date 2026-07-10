@@ -38,7 +38,7 @@ Necesitamos algo que:
 **Scripts bash puros**
 - Sin orquestador, solo `run-data-pipeline.sh`
 - No hay UI, no hay historial, si algo falla hay que revisar logs a mano
-- Válido para casos muy simples, pero no cumple los requisitos de la entrega
+- Válido para casos muy simples, pero no cumple los requisitos de la plataforma
 
 ## Decisión
 
@@ -50,8 +50,8 @@ Usamos Dagster. Se levanta con un Dockerfile propio y queda accesible en el puer
 - Los retries están configurados en el asset, no en el script
 - Agregar un nuevo paso al pipeline es agregar un asset nuevo en `dagster/dwh_pipeline/assets.py`
 - El contenedor de Dagster necesita acceso al código de `extract/`, `dbt/` y `quality/`, que se montan como volúmenes
-- Dagster guarda su propio estado en memoria (modo dev), no persiste historial entre reinicios del contenedor — aceptable para sandbox académico
+- Dagster guarda su propio estado en memoria (modo dev), no persiste historial entre reinicios del contenedor — aceptable para un sandbox de este alcance
 
 ## Qué queda fuera
 
-No usamos Dagster Cloud ni modo producción con PostgreSQL backend para Dagster. Para esta entrega el modo `dev` es suficiente.
+No usamos Dagster Cloud ni modo producción con PostgreSQL backend para Dagster. Para este alcance el modo `dev` es suficiente.

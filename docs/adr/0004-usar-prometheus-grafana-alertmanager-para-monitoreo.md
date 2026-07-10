@@ -48,10 +48,10 @@ un entorno compartido.
 Stacks orientados a logs. Kibana puede hacer algunas métricas, pero su punto fuerte son logs
 estructurados y full-text search.
 
-Por qué no los elegimos: la consigna pide métricas de request rate / latencia / error rate, que
+Por qué no los elegimos: el requerimiento de Fase 1 pide métricas de request rate / latencia / error rate, que
 se ajustan mejor al modelo pull de Prometheus que al modelo push de logs. ELK además es pesado
-en memoria para un sandbox EC2 pequeño. Loki es más liviano, pero agrega complejidad sin que la
-consigna lo pidiera.
+en memoria para un sandbox EC2 pequeño. Loki es más liviano, pero agrega complejidad sin que el
+requerimiento lo pidiera.
 
 ## Decisión
 
@@ -69,7 +69,7 @@ Trade-offs que quedan:
 - si el stack baja y no se persiste el volumen de Prometheus, el historial de métricas se pierde;
 - no hay logs centralizados: para debuggear hay que usar `docker compose logs`;
 - Alertmanager enruta solo a Slack en esta fase; agregar email requeriría configurar SMTP;
-- autenticación de Grafana es básica (`admin` con password compartido para la entrega); no es adecuado para acceso público real.
+- autenticación de Grafana es básica (`admin` con password compartido de sandbox); no es adecuado para acceso público real.
 
 Queda fuera: logs estructurados, tracing distribuido, APM completo, SSO en Grafana, alta
 disponibilidad de Prometheus y retención de métricas a largo plazo.

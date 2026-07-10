@@ -62,7 +62,7 @@ El modelo queda más claro para BI y más fácil de explicar. Las métricas vive
 
 También permite agregar checks de calidad más concretos, como validar que cada fila de la fact tenga pozo, fecha y operadora relacionados.
 
-La contra es que hay que mantener más modelos dbt. Para esta fase nos parece razonable porque la consigna pide una capa Gold analítica.
+La contra es que hay que mantener más modelos dbt. Para esta fase nos parece razonable porque el requerimiento de Fase 2 pide una capa Gold analítica.
 
 ## Surrogate keys y SCD
 

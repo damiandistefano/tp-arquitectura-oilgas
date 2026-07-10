@@ -8,7 +8,7 @@ Este directorio registra decisiones de arquitectura del proyecto. Cada ADR debe 
 - que trade-offs deja;
 - que queda fuera de alcance.
 
-Un ADR que solo dice "usamos X" sin comparar alternativas queda incompleto para la defensa.
+Un ADR que solo dice "usamos X" sin comparar alternativas queda incompleto como registro de decision.
 
 ---
 
@@ -56,7 +56,7 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ---
 
-## ADRs de Adenda 3 - ML Engineering
+## ADRs de Fase 3 - ML Engineering
 
 | # | Titulo | Estado | Area |
 |---|---|---|---|
@@ -72,7 +72,7 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ---
 
-## Cobertura actual contra Adenda 2
+## Cobertura de requerimientos de Fase 2 (data platform)
 
 | Decision pedida o esperada | ADR que la cubre | Nota |
 |---|---|---|
@@ -86,7 +86,7 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 | Gobierno de datos y catalogo | 0013 | DataHub en EC2 dedicada, comparado contra OpenMetadata, Amundsen y dbt Docs. |
 | BI para usuarios no tecnicos | 0014 | Metabase, comparado contra Grafana y Superset. |
 
-## Cobertura contra Adenda 3
+## Cobertura de requerimientos de Fase 3 (ML Engineering)
 
 | Requerimiento / decision Fase 3 | ADR que lo cubre | Evidencia |
 |---|---|---|
@@ -103,6 +103,6 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ## Criterio de cierre
 
-Los ADRs cubren las decisiones obligatorias de Fase 2 y Adenda 3. Para la entrega
-solo deberian sumarse ADRs nuevos si aparece una decision tecnica implementada,
-con trade-offs reales y evidencia concreta para defenderla.
+Los ADRs cubren las decisiones clave de Fase 2 y Fase 3. Solo deberian sumarse
+ADRs nuevos si aparece una decision tecnica implementada, con trade-offs reales
+y evidencia concreta para sostenerla.

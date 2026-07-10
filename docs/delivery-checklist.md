@@ -1,20 +1,20 @@
-# Checklist de entrega - Trabajo integrador (Fase 1 + Fase 2 + Fase 3)
+# Checklist de validacion - Oil & Gas Predictive Platform (Fase 1 + Fase 2 + Fase 3)
 
-Este documento es la verdad operativa para cerrar la entrega completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 (plataforma de datos) y Fase 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+Este documento es la verdad operativa para validar la plataforma completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 (data platform) y Fase 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
 
-La validacion oficial y reproducible es local con Docker Compose: no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega.
+La validacion reproducible es local con Docker Compose: no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes de desarrollo/evidencia complementaria y pueden estar apagados.
 
 Responsables por area:
 
 - I1: ingesta, Bronze, metadata, Dagster, estrategia de carga/backfill, feature store, training y retraining.
 - I2: dbt, Silver, Gold, Semantic, calidad persistida, Metabase, serving predictivo y prediction logs.
-- I3: governance/DataHub, MLflow, CI ML, drift, README, ADR review, runbooks, checklist final y evidencia de entrega.
+- I3: governance/DataHub, MLflow, CI ML, drift, README, ADR review, runbooks, checklist final y evidencia de validacion.
 
 ---
 
 ## 1. Estado por componente
 
-| Componente | Responsable | Estado para entrega | Evidencia esperada |
+| Componente | Responsable | Estado | Evidencia esperada |
 |---|---|---|---|
 | API REST + Swagger | Equipo / Fase 1 | Listo | `/health`, `/docs`, endpoints con API key |
 | Monitoreo tecnico | Equipo / Fase 1 | Listo | Grafana, Prometheus targets, Alertmanager |
@@ -25,11 +25,11 @@ Responsables por area:
 | Calidad persistida | I2 | Listo | `quality.data_quality_results` con resultados recientes |
 | Metabase | I2 | Listo con setup manual | Dashboard `Oil & Gas BI Dashboard`, 6 tarjetas con datos |
 | DataHub / governance | I3 | Stack externo en EC2 dedicada | UI `:9002`, datasets del warehouse, columnas/tipos y metadata tecnica |
-| Documentacion | I3 + equipo | Lista para entrega | README, ADRs, runbooks, contratos y checklist coherentes |
+| Documentacion | I3 + equipo | Lista | README, ADRs, runbooks, contratos y checklist coherentes |
 
 ### Fase 3 - ML Engineering
 
-| Componente | Responsable | Estado para entrega | Evidencia esperada |
+| Componente | Responsable | Estado | Evidencia esperada |
 |---|---|---|---|
 | Feature store offline | I1 | Listo local | `features.pozo_monthly_features` con grano `id_pozo + periodo_mes` |
 | No-leakage temporal | I1 | Cubierto por tests | `pytest tests/test_ml_features.py -q` |
@@ -48,16 +48,16 @@ Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su qu
 
 ## 1.1 Entornos de la demo
 
-La validacion oficial es local; no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega; los runbooks quedan con placeholders por si se quiere reproducirlos en una instancia propia. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
+La validacion reproducible es local; no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes de desarrollo/evidencia complementaria y pueden estar apagados; los runbooks quedan con placeholders para reproducirlos en una instancia propia. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
 
 | Entorno | Uso | URL a validar | Caracter |
 |---|---|---|---|
 | Stack ML local (obligatorio) | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | Validacion local reproducible |
 | Stack de datos (obligatorio) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | Validacion local reproducible |
-| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://<sandbox-api-host>` (`:8000` `:3000` `:9090` `:9093`) | Historico, apagado para la entrega |
-| DataHub | Catalogo/governance | `http://<datahub-host>:9002` | Historico, apagado para la entrega |
+| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://<sandbox-api-host>` (`:8000` `:3000` `:9090` `:9093`) | Sandbox historico, puede estar apagado |
+| DataHub | Catalogo/governance | `http://<datahub-host>:9002` | Sandbox historico, puede estar apagado |
 
-El profe puede levantar todo el stack local en su maquina con las instrucciones del README, o verlo en la demo en vivo / video.
+El stack completo puede levantarse localmente con las instrucciones del README, o verse en el walkthrough en video.
 
 ---
 
@@ -224,9 +224,9 @@ Evidencia minima:
 - `metadata.prediction_logs` tiene una fila `success` con `model_source = mlflow`;
 - drift check corre y muestra `drifted` por feature.
 
-### DataHub (sandbox historico, apagado para la entrega)
+### DataHub (sandbox historico)
 
-Solo aplica si se decide reproducir el sandbox en una instancia propia; la evidencia de la entrega es el video/capturas:
+Solo aplica si se decide reproducir el sandbox en una instancia propia; la evidencia principal es el walkthrough en video/capturas:
 
 | Dato | Valor |
 |---|---|
@@ -247,7 +247,7 @@ Evidencia minima esperada:
 
 ---
 
-## 4. Inventario de entregables
+## 4. Inventario de documentacion
 
 ### ADRs
 
@@ -292,7 +292,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 
 ---
 
-## 5. Checklist final de entrega
+## 5. Checklist final de release
 
 ### Validacion local obligatoria (reproducible)
 
@@ -341,7 +341,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] README refleja el estado real y tiene la seccion "Arquitectura completa de la solucion".
 - [ ] ADRs tienen alternativas y trade-offs; el indice cubre Fase 3.
 - [ ] Runbooks tienen pasos, validacion y que hacer si falla.
-- [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas como sandbox opcional.
+- [ ] No quedan TODOs ni frases de borrador; las URLs de sandbox usan placeholders, sin IPs reales.
 - [ ] No se promete produccion real ni alta disponibilidad.
 
 ### Sandbox AWS (historico, solo si se reproduce en instancia propia)
@@ -350,11 +350,11 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Smoke test de AWS ejecutado por script o workflow manual si se reproduce el sandbox.
 - [ ] DataHub abre en `:9002` y muestra datasets del warehouse si se reproduce la EC2 dedicada.
 
-### Cierre de entrega
+### Cierre de release
 
-- [ ] Video de Fase 3 grabado (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
+- [ ] Walkthrough en video de la capa ML (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
 - [ ] `develop` tiene todos los merges y CI en verde.
 - [ ] PR `develop -> main` abierto, revisado y mergeado.
 - [ ] Tag de release `v0.3.0` creado en `main` (v0.1.0 y v0.2.0 ya existen de fases anteriores).
-- [ ] Zip armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
-- [ ] Zip revisado contra la lista de exclusiones.
+- [ ] Export del repo armado sin `.env`, `.pem`, caches, dumps, outputs generados ni `/contexto`.
+- [ ] Export revisado contra la lista de exclusiones.

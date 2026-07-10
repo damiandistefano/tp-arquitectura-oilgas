@@ -20,7 +20,7 @@ Grafana ya existe en el proyecto para monitoreo tecnico de la API. Podria conect
 
 ### Apache Superset
 
-Superset es potente para BI y exploracion, pero suma mas configuracion y administracion. Para esta entrega era mas pesado que lo necesario.
+Superset es potente para BI y exploracion, pero suma mas configuracion y administracion. Para este alcance era mas pesado que lo necesario.
 
 ### Metabase
 
@@ -37,7 +37,7 @@ La logica de negocio principal queda versionada en dbt, no en Metabase. Metabase
 - Usuarios no tecnicos pueden revisar produccion mensual, produccion por operadora, produccion por area/yacimiento, frescura y estado de calidad.
 - El dashboard se puede reconstruir con el runbook de BI si se pierde el volumen local de Metabase.
 - Las metricas importantes se mantienen en vistas SQL versionadas, reduciendo SQL duplicado dentro de la herramienta.
-- No hay provisioning automatico del dashboard por API de Metabase. Para esta entrega se acepta porque automatizarlo requiere manejar tokens, IDs internos y estado del volumen.
+- No hay provisioning automatico del dashboard por API de Metabase. Para este alcance se acepta porque automatizarlo requiere manejar tokens, IDs internos y estado del volumen.
 
 ## Fuera de alcance
 

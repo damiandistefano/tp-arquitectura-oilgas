@@ -6,9 +6,9 @@ Aceptado.
 
 ## Contexto
 
-Adenda 2 pide una plataforma de gobierno de datos en la cual se puedan navegar datasets, metadata y linaje a nivel tabla. El warehouse del proyecto ya organiza los datos en capas `bronze`, `silver`, `gold`, `quality`, `metadata` y `semantic`.
+La capa de datos (Fase 2) requiere una plataforma de gobierno de datos en la cual se puedan navegar datasets, metadata y linaje a nivel tabla. El warehouse del proyecto ya organiza los datos en capas `bronze`, `silver`, `gold`, `quality`, `metadata` y `semantic`.
 
-Sin un catalogo, la informacion sobre tablas, columnas y responsables queda repartida entre dbt, contratos Markdown, runbooks y consultas manuales a PostgreSQL. Para una defensa del TP hace falta una UI donde se pueda mostrar el modelo sin entrar al codigo.
+Sin un catalogo, la informacion sobre tablas, columnas y responsables queda repartida entre dbt, contratos Markdown, runbooks y consultas manuales a PostgreSQL. Para presentar la plataforma hace falta una UI donde se pueda mostrar el modelo sin entrar al codigo.
 
 ## Problema
 
@@ -28,11 +28,11 @@ DataHub es una herramienta open source de metadata management y data governance.
 
 ### OpenMetadata
 
-OpenMetadata cubre un problema similar y tambien tiene conectores. Para este TP no ofrece una ventaja clara frente a DataHub, y suma una curva de aprendizaje parecida.
+OpenMetadata cubre un problema similar y tambien tiene conectores. Para este proyecto no ofrece una ventaja clara frente a DataHub, y suma una curva de aprendizaje parecida.
 
 ### Amundsen
 
-Amundsen es mas simple como catalogo, pero su ecosistema y conectores resultan menos directos para esta entrega. Tambien quedaria corto frente al requerimiento de lineage.
+Amundsen es mas simple como catalogo, pero su ecosistema y conectores resultan menos directos para este alcance. Tambien quedaria corto frente al requerimiento de lineage.
 
 ### dbt Docs + documentacion Markdown
 
@@ -51,14 +51,14 @@ DataHub no se integra al `docker-compose.yml` principal porque su stack es pesad
 - `metadata`
 - `semantic`
 
-La UI queda expuesta en el puerto `9002`. El procedimiento esta documentado en [docs/runbooks/datahub.md](../runbooks/datahub.md). La IP publica vigente de la entrega figura en las URLs oficiales del [README](../../README.md).
+La UI queda expuesta en el puerto `9002`. El procedimiento esta documentado en [docs/runbooks/datahub.md](../runbooks/datahub.md), con el placeholder `<datahub-host>` para la instancia donde se reproduzca; no se publican IPs reales en el repo.
 
 ## Consecuencias
 
-La entrega gana un catalogo navegable de los datasets del warehouse y una forma concreta de explicar discovery, metadata y governance.
+La plataforma gana un catalogo navegable de los datasets del warehouse y una forma concreta de explicar discovery, metadata y governance.
 
-El costo es operativo: DataHub requiere una instancia mas grande que el sandbox de la API. Para la entrega se mantiene encendida durante la ventana de correccion; fuera de esa ventana se apaga para no gastar creditos. La ingesta de metadata es manual: cuando cambia el warehouse, se vuelve a correr `datahub ingest -c datahub/recipe.postgres.yml`.
+El costo es operativo: DataHub requiere una instancia mas grande que el sandbox de la API. La instancia es on-demand: se enciende para validar o grabar evidencia y se apaga para no gastar creditos. La ingesta de metadata es manual: cuando cambia el warehouse, se vuelve a correr `datahub ingest -c datahub/recipe.postgres.yml`.
 
 ## Que queda fuera
 
-No se implementan SSO, RBAC fino, alta disponibilidad, scheduling automatico de ingesta, data contracts nativos de DataHub ni linaje column-level productivo. El alcance es academico: catalogo, metadata tecnica y evidencia de gobierno de datos para la entrega.
+No se implementan SSO, RBAC fino, alta disponibilidad, scheduling automatico de ingesta, data contracts nativos de DataHub ni linaje column-level productivo. El alcance es de prototipo: catalogo, metadata tecnica y evidencia de gobierno de datos.

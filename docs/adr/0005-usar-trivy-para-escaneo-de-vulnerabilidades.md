@@ -6,7 +6,7 @@ Aceptado
 
 ## Contexto
 
-La consigna de Fase 1 indica que las imágenes Docker deberían ser escaneadas por vulnerabilidades como parte del pipeline de CI.
+El requerimiento de Fase 1 indica que las imágenes Docker deberían ser escaneadas por vulnerabilidades como parte del pipeline de CI.
 
 El proyecto publica una imagen Docker de la API en GitHub Container Registry (GHCR), por lo que resulta necesario validar esa imagen antes de considerarla apta para despliegue.
 
@@ -70,7 +70,7 @@ Se usará **Trivy** dentro del pipeline de GitHub Actions para escanear la image
 
 El pipeline ejecuta el escaneo sobre la imagen `oilgas-api` después del build.
 
-En Fase 1, el escaneo se configura con `exit-code: 0`, por lo que funciona como control informativo y evidencia de validación de seguridad, sin bloquear la entrega por falsos positivos o vulnerabilidades heredadas de imágenes base.
+En Fase 1, el escaneo se configura con `exit-code: 0`, por lo que funciona como control informativo y evidencia de validación de seguridad, sin bloquear el pipeline por falsos positivos o vulnerabilidades heredadas de imágenes base.
 
 ## Consecuencias
 

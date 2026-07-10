@@ -6,9 +6,9 @@ Aceptado.
 
 ## Contexto
 
-La adenda contempla una capa semántica simple. El objetivo es que un usuario o dashboard no tenga que conocer todo el modelo Gold para consultar métricas comunes.
+La Fase 2 contempla una capa semántica simple. El objetivo es que un usuario o dashboard no tenga que conocer todo el modelo Gold para consultar métricas comunes.
 
-En este TP, las métricas esperadas son bastante directas: producción mensual, producción por operadora, producción por área/yacimiento y frescura de datos.
+En este proyecto, las métricas esperadas son bastante directas: producción mensual, producción por operadora, producción por área/yacimiento y frescura de datos.
 
 ## Problema
 
@@ -24,7 +24,7 @@ Es simple y no requiere más modelos. El problema es que deja la lógica de nego
 
 ### Usar dbt Semantic Layer o Cube
 
-Son alternativas más potentes para una capa semántica formal. Las descartamos porque agregan complejidad y no hacen falta para el alcance de esta entrega.
+Son alternativas más potentes para una capa semántica formal. Las descartamos porque agregan complejidad y no hacen falta para este alcance.
 
 ### Usar vistas SQL en PostgreSQL
 

@@ -24,7 +24,7 @@ Ventajas para este proyecto:
 - sin configuración extra de webhooks o permisos entre plataformas;
 - `GITHUB_TOKEN` disponible de forma automática para publicar en GHCR;
 - la ejecución de checks aparece directamente en el PR, visible para todo el equipo;
-- runners gratuitos (`ubuntu-latest`) suficientes para el volumen de cambios de una entrega académica.
+- runners gratuitos (`ubuntu-latest`) suficientes para el volumen de cambios de un proyecto de este alcance.
 
 Desventajas:
 - el pipeline queda atado al ecosistema GitHub: si el repo migrara, habría que reescribirlo;
@@ -35,7 +35,7 @@ Desventajas:
 Alternativa potente con soporte de pipelines complejos y runners propios.
 
 Por qué no la elegimos: el repositorio está en GitHub. Migrar o sincronizar solo para usar GitLab CI
-sería overhead innecesario para un equipo de tres personas trabajando en una entrega acotada.
+sería overhead innecesario para un equipo de tres personas trabajando en un alcance acotado.
 
 ### Jenkins
 
@@ -57,7 +57,7 @@ validaciones del stack y publicación en GHCR al mergear a `main`.
 
 El deploy automático por SSH hacia EC2 quedó fuera del pipeline deliberadamente: exponer
 credenciales de acceso SSH en GitHub Actions aumenta el riesgo de comprometer el sandbox y agrega
-complejidad que no justifica el ahorro de un paso manual en una entrega académica.
+complejidad que no justifica el ahorro de un paso manual en un sandbox de este alcance.
 
 ## Consecuencias
 

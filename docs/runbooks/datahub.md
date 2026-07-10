@@ -1,6 +1,6 @@
 # Runbook: DataHub en EC2
 
-Este runbook describe como operar DataHub para la entrega de Adenda 2. DataHub cataloga la metadata del warehouse PostgreSQL y permite mostrar datasets, schemas, columnas y gobierno de datos desde una UI.
+Este runbook describe como operar DataHub, el catalogo de gobierno de datos de la plataforma (Fase 2). DataHub cataloga la metadata del warehouse PostgreSQL y permite mostrar datasets, schemas, columnas y gobierno de datos desde una UI.
 
 DataHub no corre en el `docker-compose.yml` principal porque es un stack pesado. Para la demo se usa una EC2 dedicada y on-demand.
 
@@ -19,7 +19,7 @@ DataHub debe mostrar metadata de estos schemas:
 | `metadata` | `pipeline_runs` y `source_files`. |
 | `semantic` | Vistas usadas por Metabase. |
 
-El objetivo no es mostrar gobierno enterprise, sino discovery, catalogo, metadata tecnica y linaje defendible para el TP.
+El objetivo no es mostrar gobierno enterprise, sino discovery, catalogo, metadata tecnica y linaje demostrable del warehouse.
 
 ---
 
@@ -38,7 +38,7 @@ Configuracion probada para el quickstart:
 
 No exponer `8080` publicamente. La ingesta lo usa desde la misma EC2.
 
-Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en `t3.micro`. Para esta entrega se justifica `t3.large` como instancia dedicada y on-demand, prendida solo para validar o grabar la demo. No usar este tamaño como referencia para el sandbox de API si solo se muestra Fase 1.
+Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en `t3.micro`. Para este prototipo se justifica `t3.large` como instancia dedicada y on-demand, prendida solo para validar o grabar el walkthrough. No usar este tamaño como referencia para el sandbox de API si solo se muestra Fase 1.
 
 ---
 
@@ -54,7 +54,7 @@ Nota de costo: DataHub quickstart levanta varios contenedores y no es comodo en 
 ssh -i datahub-oilgas.pem ubuntu@<datahub-host>
 ```
 
-`<datahub-host>` es la IP o hostname de la instancia propia donde se reproduzca el stack. El sandbox de DataHub usado durante el desarrollo fue temporal y esta apagado para la entrega: la evidencia oficial es el video/capturas y la validacion local. No se documentan IPs publicas reales en este repo.
+`<datahub-host>` es la IP o hostname de la instancia propia donde se reproduzca el stack. El sandbox de DataHub usado durante el desarrollo fue un prototipo temporal y puede estar apagado: la evidencia principal es el walkthrough en video/capturas y la validacion local. No se documentan IPs publicas reales en este repo.
 
 ---
 
@@ -173,7 +173,7 @@ Si la ingesta devuelve 0 tablas:
 
 ---
 
-## 9. Validacion UI para la entrega
+## 9. Validacion de la UI
 
 En `http://<datahub-host>:9002`:
 
@@ -197,9 +197,9 @@ Evidencia minima para la defensa:
 
 ## 10. Apagar para no gastar creditos
 
-El sandbox esta apagado para la entrega: la evidencia de DataHub se muestra en el video o con capturas, y la validacion oficial de la entrega es local. Si alguien quiere reproducirlo, puede levantar el stack en una instancia propia y abrir `http://<datahub-host>:9002`.
+El sandbox puede estar apagado: la evidencia de DataHub se muestra en el walkthrough en video o con capturas, y la validacion reproducible del proyecto es local. Si alguien quiere reproducirlo, puede levantar el stack en una instancia propia y abrir `http://<datahub-host>:9002`.
 
-Una vez terminada la correccion, apagar para no gastar creditos:
+Cuando no se usa, apagar para no gastar creditos:
 
 ```bash
 # desde AWS Console: Instance state -> Stop instance

@@ -24,7 +24,7 @@ Los tests de dbt sirven y ya los usamos, pero no dejan una tabla propia con el h
 
 ### Usar Great Expectations
 
-Great Expectations es más completo para calidad de datos. Lo descartamos para esta fase porque agrega bastante configuración y otra herramienta más al stack. Para el alcance del TP era demasiado.
+Great Expectations es más completo para calidad de datos. Lo descartamos para esta fase porque agrega bastante configuración y otra herramienta más al stack. Para el alcance del proyecto era demasiado.
 
 ### Implementar checks propios en Python
 

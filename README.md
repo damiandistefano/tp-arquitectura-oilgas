@@ -1,14 +1,14 @@
-# tp-arquitectura-oilgas
+# Oil & Gas Predictive Platform
 
-Trabajo integrador de Ingenieria de Software para un sistema predictivo de produccion de hidrocarburos.
+Plataforma end-to-end de datos y MLOps para forecast mensual de produccion de petroleo por pozo, construida sobre datos publicos del sector energetico argentino.
 
-El repo presenta una plataforma integral construida en tres fases:
+La plataforma esta construida en tres capas que reflejan su evolucion:
 
-- Fase 1: API REST FastAPI, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
-- Fase 2: plataforma de datos con warehouse PostgreSQL, arquitectura Medallion, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
-- Fase 3: ML Engineering con feature store offline, training batch, baseline, promotion gate, MLflow (tracking + registry), model serving, prediction logs, drift check y CI de ML.
+- Fase 1 — plataforma base: API REST FastAPI, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
+- Fase 2 — data platform: warehouse PostgreSQL, arquitectura Medallion, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
+- Fase 3 — ML Engineering: feature store offline, training batch, baseline, promotion gate, MLflow (tracking + registry), model serving, prediction logs, drift check y CI de ML.
 
-La entrega sigue siendo un sandbox academico. No se presenta como una plataforma productiva con alta disponibilidad, gobierno enterprise o despliegue multiambiente completo.
+La solucion esta pensada como una arquitectura de referencia local-first con practicas inspiradas en produccion: no se presenta como un despliegue productivo con alta disponibilidad, gobierno enterprise o multiambiente completo, sino como una implementacion completa y reproducible de data platform y ML Engineering.
 
 ---
 
@@ -49,20 +49,20 @@ datos publicos (datos.gob.ar)
 | Drift | `ml.drift_check` + `scripts/run-drift-check.sh`, z-score por feature |
 | CI/CD | GitHub Actions: `ci.yml` (API, imagen, stack) + `ml-ci.yml` (pipeline ML con fixture) |
 
-### Alcance de la evaluacion
+### Alcance y validacion
 
-- La evaluacion oficial y reproducible es local con Docker Compose (`docker-compose.yml`). No se requiere ningun servicio publico activo.
-- AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia, no parte del camino oficial de correccion. Estan apagados para la entrega.
-- La demo ML model-backed de Fase 3 se valida localmente y no depende de servicios publicos.
+- La validacion reproducible del proyecto es local con Docker Compose (`docker-compose.yml`). No se requiere ningun servicio publico activo.
+- Los sandboxes cloud (AWS, DataHub) usados durante el desarrollo son evidencia complementaria, no parte del camino principal de validacion, y pueden estar apagados.
+- La capa ML model-backed (Fase 3) se valida localmente y no depende de servicios publicos.
 - No se promete produccion real: sin alta disponibilidad, autoscaling, forecast recursivo ni Fase 3 en AWS.
 
 ---
 
-## Evaluacion local y sandbox AWS historico
+## Validacion local y sandbox cloud
 
-La evaluacion oficial y reproducible de la entrega es el stack local con Docker Compose (ver secciones siguientes). No se requiere ningun servicio publico activo.
+La validacion reproducible de la plataforma es el stack local con Docker Compose (ver secciones siguientes). No se requiere ningun servicio publico activo.
 
-Durante el desarrollo se uso un sandbox AWS temporal como evidencia complementaria: una EC2 con el deploy de Fase 1 (API + monitoreo desde GHCR) y una EC2 dedicada para DataHub. Esas instancias estan apagadas para la entrega y no forman parte del camino de correccion. Los runbooks quedan documentados con placeholders (`<sandbox-api-host>`, `<datahub-host>`) por si se quiere reproducir el sandbox en una instancia propia:
+Durante el desarrollo se uso un sandbox AWS como prototipo de despliegue y evidencia complementaria: una EC2 con el deploy de Fase 1 (API + monitoreo desde GHCR) y una EC2 dedicada para DataHub. Esas instancias no forman parte del camino principal de validacion y pueden estar apagadas. Los runbooks quedan documentados con placeholders (`<sandbox-api-host>`, `<datahub-host>`) para reproducir el sandbox en una instancia propia:
 
 - [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md)
 - [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md)
@@ -70,7 +70,7 @@ Durante el desarrollo se uso un sandbox AWS temporal como evidencia complementar
 
 ### Stack de datos y BI (local)
 
-| Servicio | URL | Estado de entrega |
+| Servicio | URL | Estado |
 |---|---|---|
 | PostgreSQL warehouse | `localhost:5433` desde host / `postgres:5432` desde contenedores | Implementado en `docker-compose.yml` |
 | Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos y del retraining ML (`dagster/dwh_pipeline/`). Se levanta con `docker compose up` |
@@ -372,7 +372,7 @@ IMAGE_TAG=ci API_PORT=8002 docker compose -f docker-compose.deploy.yml config
 bash scripts/validate-delivery.sh
 ```
 
-Validaciones manuales recomendadas antes de entregar:
+Validaciones manuales recomendadas antes de un release:
 
 - Dagster abre en `:3002`, muestra assets y una corrida exitosa.
 - Metabase abre en `:3001`, conectado al warehouse, con dashboard y tarjetas con datos.
@@ -413,7 +413,7 @@ En `main`, el pipeline publica imagen de la API en GHCR con tags:
 - `latest`;
 - commit SHA.
 
-Los checks de datos completos requieren warehouse y fuentes externas, por eso tambien se validan manualmente con el checklist de entrega.
+Los checks de datos completos requieren warehouse y fuentes externas, por eso tambien se validan manualmente con el checklist de validacion.
 
 Para validar una EC2 ya desplegada desde GitHub, existe el workflow manual `AWS Smoke Test`. Recibe la base URL publica y revisa API, metricas, endpoints protegidos, Grafana, Prometheus y Alertmanager.
 
@@ -501,11 +501,11 @@ Implementado:
 - Feature store offline, training batch y serving predictivo con adapter.
 - MLflow local para tracking, registry y alias `champion`.
 - ML CI con fixture chico y smoke end-to-end.
-- ADRs, runbooks y checklist de entrega.
+- ADRs, runbooks y checklist de validacion.
 
 Limitaciones asumidas:
 
-- El serving es de alcance sandbox academico: no hay alta disponibilidad,
+- El serving es de alcance prototipo sandbox: no hay alta disponibilidad,
   canary releases ni plataforma enterprise de modelos.
 - El forecast model-backed de Fase 3 se valida localmente; el compose de deploy
   AWS no incluye Postgres ni MLflow.
@@ -514,7 +514,7 @@ Limitaciones asumidas:
 - No hay CDC real desde las fuentes publicas.
 - No hay alta disponibilidad ni Kubernetes.
 - No hay multiambiente completo dev/staging/prod.
-- No hay gobierno enterprise: DataHub se usa como catalogo academico, no como plataforma productiva con SSO/RBAC/HA.
+- No hay gobierno enterprise: DataHub se usa como catalogo de referencia, no como plataforma productiva con SSO/RBAC/HA.
 - Dashboard de Metabase se configura desde UI, no se provisiona automaticamente como codigo.
 
 ---

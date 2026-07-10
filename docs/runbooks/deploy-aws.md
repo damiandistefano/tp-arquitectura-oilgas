@@ -2,7 +2,7 @@
 
 Este documento describe el proceso para desplegar la API en una instancia EC2 o en un sandbox Linux equivalente.
 
-El sandbox AWS fue un entorno temporal de desarrollo/evidencia y está apagado para la entrega: la evaluación oficial es local con Docker Compose y no requiere servicios públicos activos. Este runbook usa placeholders (`<sandbox-api-host>`) para reproducir el deploy en una instancia propia si se quiere.
+El sandbox AWS es un prototipo de despliegue usado como evidencia complementaria y puede estar apagado: la validación reproducible del proyecto es local con Docker Compose y no requiere servicios públicos activos. Este runbook usa placeholders (`<sandbox-api-host>`) para reproducir el deploy en una instancia propia.
 
 Para Fase 1, el objetivo mínimo es dejar accesible la API desde la instancia y validar que responde correctamente. El stack completo de monitoreo puede desplegarse en la misma instancia si se quiere validar Prometheus, Grafana, Alertmanager y cAdvisor.
 
@@ -51,7 +51,7 @@ Security Group recomendado:
 | Puerto | Uso | Observación |
 |---|---|---|
 | `22` | SSH | Restringir a IP del equipo. |
-| `8000` | API REST | Necesario para la corrección. |
+| `8000` | API REST | Necesario para acceder a la API. |
 | `3000` | Grafana | Opcional, restringir si es posible. |
 | `9090` | Prometheus | Opcional, restringir si es posible. |
 | `9093` | Alertmanager | Opcional, restringir si es posible. |
@@ -368,7 +368,7 @@ Errores frecuentes:
 
 ## 15. Cierre de release
 
-Para cerrar una entrega:
+Para cerrar un release:
 
 1. mergear `develop` hacia `main`;
 2. verificar que CI pase en `main`;
@@ -377,7 +377,7 @@ Para cerrar una entrega:
 5. correr smoke test;
 6. crear un tag anotado en `main`.
 
-Para Adenda 2 el tag de entrega es:
+Ejemplo del tag de release de la Fase 2:
 
 ```bash
 git tag -a v0.2.0 -m "Phase 2 Delivery - v0.2.0"

@@ -82,9 +82,9 @@ Pros:
 
 Contras:
 
-- Fuera del alcance de este TP y de la infraestructura actual.
-- Agrega dependencias y operacion que no aportan al objetivo de Adenda 3.
-- Puede confundir el entregable prometiendo madurez productiva que no existe.
+- Fuera del alcance de este proyecto y de la infraestructura actual.
+- Agrega dependencias y operacion que no aportan al objetivo de la Fase 3.
+- Puede confundir el alcance prometiendo madurez productiva que no existe.
 
 ### Opcion D - Cliente envia todas las features
 
