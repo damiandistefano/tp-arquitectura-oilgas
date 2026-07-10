@@ -2,45 +2,93 @@
 
 Trabajo integrador de Ingenieria de Software para un sistema predictivo de produccion de hidrocarburos.
 
-El repo cubre dos etapas:
+El repo presenta una plataforma integral construida en tres fases:
 
-- Fase 1: API REST mock, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
-- Fase 2: integracion de datos con arquitectura Medallion, warehouse PostgreSQL, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
-- Adenda 3: feature store offline, training batch, model serving y prediction logs para forecast mensual.
+- Fase 1: API REST FastAPI, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
+- Fase 2 / Adenda 2: plataforma de datos con warehouse PostgreSQL, arquitectura Medallion, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
+- Fase 3 / Adenda 3: ML Engineering con feature store offline, training batch, baseline, promotion gate, MLflow (tracking + registry), model serving, prediction logs, drift check y CI de ML.
 
 La entrega sigue siendo un sandbox academico. No se presenta como una plataforma productiva con alta disponibilidad, gobierno enterprise o despliegue multiambiente completo.
 
 ---
 
-## URLs oficiales de entrega
+## Arquitectura completa de la solucion
 
-IPs vigentes de la entrega (instancias activas durante la correccion):
+Las tres fases forman un unico flujo, de datos publicos a forecast servido por API:
 
-- Sandbox API + monitoreo: `16.59.211.99`
-- DataHub (gobierno de datos): `3.143.210.125`
+```text
+datos publicos (datos.gob.ar)
+  -> Bronze (ingesta append-only con hash de archivo)
+  -> Silver (limpieza y tipado con dbt)
+  -> Gold (modelo estrella: fact_produccion_pozo + dimensiones)
+  -> Semantic (vistas SQL para BI)
+  -> Feature Store (features.pozo_monthly_features)
+  -> Training / Validation (ml.train + baseline naive + split temporal)
+  -> MLflow Tracking + Model Registry (modelo oilgas_forecaster)
+  -> Promotion Gate (ml.promotion_gate mueve el alias champion solo si mejora)
+  -> FastAPI Forecast (GET /api/v1/forecast)
+  -> Prediction Logs (metadata.prediction_logs)
+  -> Drift Check (ml.drift_check)
+  -> CI/CD (GitHub Actions: ci.yml + ml-ci.yml)
+```
 
-Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `docker compose up` (ver mas abajo). El resto de las URLs son publicas.
+### Cobertura de requerimientos
 
-### Fase 1
+| Requerimiento | Herramienta / implementacion |
+|---|---|
+| Data Warehouse | PostgreSQL con schemas `bronze`, `silver`, `gold`, `quality`, `metadata`, `semantic` y `features` |
+| Pre-proc / generacion de features | `ml.build_features` puebla `features.pozo_monthly_features` desde Gold |
+| Feature Store | Schema `features` en Postgres, persistido y consumido por training y por la inferencia |
+| Training | `ml.train` (HistGradientBoosting, baseline `prod_pet_lag_1`, split temporal sin leakage) |
+| Validation / gate | `ml.promotion_gate` compara candidato contra baseline y champion |
+| Orquestacion | Dagster: `ml_training_job` repetible para un dia dado y schedule `ml_retraining_monthly` |
+| Experiment Tracking | MLflow (runs con parametros, metricas y artefactos) |
+| Model Registry | MLflow Model Registry, modelo `oilgas_forecaster` con alias `champion` |
+| API REST | FastAPI `GET /api/v1/forecast` con feature enrichment y metadata runtime |
+| Logs de inferencia | `metadata.prediction_logs` en Postgres |
+| Drift | `ml.drift_check` + `scripts/run-drift-check.sh`, z-score por feature |
+| CI/CD | GitHub Actions: `ci.yml` (API, imagen, stack) + `ml-ci.yml` (pipeline ML con fixture) |
+
+### Alcance de la evaluacion
+
+- La evaluacion reproducible es local con Docker Compose (`docker-compose.yml`).
+- El sandbox AWS es opcional y complementario: evidencia de deploy de Fase 1 y de DataHub, no camino oficial de correccion.
+- La demo ML model-backed de Adenda 3 se valida localmente y no depende de IPs publicas prendidas.
+- No se promete produccion real: sin alta disponibilidad, autoscaling, forecast recursivo ni Adenda 3 en AWS.
+
+---
+
+## Sandbox AWS opcional (evidencia complementaria)
+
+El camino oficial y reproducible de la entrega es el stack local con Docker Compose (ver secciones siguientes). Las instancias AWS son un sandbox opcional que complementa la evidencia de Fase 1 (deploy de API + monitoreo desde GHCR) y de gobierno de datos (DataHub). Pueden estar apagadas sin afectar la validacion de Adenda 3.
+
+IPs del sandbox cuando esta encendido:
+
+- Sandbox API + monitoreo: `18.118.45.3`
+- DataHub (gobierno de datos): `18.118.110.246`
+
+Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `docker compose up` (ver mas abajo).
+
+### Fase 1 (sandbox opcional)
 
 | Servicio | URL | Credenciales / notas |
 |---|---|---|
-| API | `http://16.59.211.99:8000` | - |
-| Swagger / OpenAPI UI | `http://16.59.211.99:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
-| OpenAPI JSON | `http://16.59.211.99:8000/openapi.json` | - |
-| Grafana | `http://16.59.211.99:3000` | `admin` / `pKNF9UsS4mzDtnA` |
-| Prometheus | `http://16.59.211.99:9090` | - |
-| Alertmanager | `http://16.59.211.99:9093` | Slack real solo si se configura webhook valido |
+| API | `http://18.118.45.3:8000` | - |
+| Swagger / OpenAPI UI | `http://18.118.45.3:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
+| OpenAPI JSON | `http://18.118.45.3:8000/openapi.json` | - |
+| Grafana | `http://18.118.45.3:3000` | `admin` / `pKNF9UsS4mzDtnA` |
+| Prometheus | `http://18.118.45.3:9090` | - |
+| Alertmanager | `http://18.118.45.3:9093` | Slack real solo si se configura webhook valido |
 
-### Fase 2
+### Fase 2 (stack local + DataHub opcional)
 
 | Servicio | URL | Estado de entrega |
 |---|---|---|
 | PostgreSQL warehouse | `localhost:5433` desde host / `postgres:5432` desde contenedores | Implementado en `docker-compose.yml` |
-| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos (`dagster/dwh_pipeline/`). Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
+| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos y del retraining ML (`dagster/dwh_pipeline/`). Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
 | Metabase | `http://localhost:3001` (local) | BI sobre vistas `semantic.*`; usuario `martinbianchi@udesa.edu.ar` / `Admin1234!`. Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
 | dbt Docs | local, generado con `dbt docs generate` | Evidencia de modelos, tests y lineage de dbt |
-| DataHub | `http://3.143.210.125:9002` | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
+| DataHub | `http://18.118.110.246:9002` (opcional) | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
 
 DataHub no aparece en el `docker-compose.yml` principal de este repo porque su quickstart es pesado. Se opera como stack externo en una EC2 dedicada y on-demand. Ver [docs/runbooks/datahub.md](docs/runbooks/datahub.md).
 
@@ -345,7 +393,7 @@ Validaciones manuales recomendadas antes de entregar:
 - GitHub Actions esta verde en el commit final.
 - GHCR tiene la imagen esperada si se usa deploy desde registry.
 - El workflow manual `AWS Smoke Test` o `scripts/sandbox-smoke.sh` valida la EC2 si se muestra el sandbox.
-- El workflow `ml-ci.yml` valida el fixture chico de ML con Postgres, MLflow, API y drift check.
+- El workflow `ml-ci.yml` valida el fixture chico de ML con Postgres, MLflow, API y drift check, y que el repo Dagster carga con `ml_training_job` y `ml_retraining_monthly`.
 - DataHub muestra datasets del warehouse y metadata tecnica en la EC2 dedicada.
 
 Ver [docs/delivery-checklist.md](docs/delivery-checklist.md).
@@ -353,6 +401,8 @@ Ver [docs/delivery-checklist.md](docs/delivery-checklist.md).
 ---
 
 ## CI/CD
+
+Los workflows `ci.yml` y `ml-ci.yml` corren en cada pull request hacia `develop` y `main`, y en push a `main`, `develop` y `feature/**`.
 
 GitHub Actions ejecuta validaciones de Fase 1 y controles generales:
 
@@ -404,7 +454,7 @@ Rollback:
 Smoke test del sandbox:
 
 ```bash
-bash scripts/sandbox-smoke.sh 16.59.211.99
+bash scripts/sandbox-smoke.sh 18.118.45.3
 ```
 
 `docker-compose.deploy.yml` no incluye Postgres ni MLflow. Por eso el forecast

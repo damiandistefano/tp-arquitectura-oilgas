@@ -88,17 +88,18 @@ El ultimo titulo puede variar, pero la idea no: toda decision importante debe mo
 
 ## Cobertura contra Adenda 3
 
-| Decision pedida o esperada | ADR que la cubre | Nota |
+| Requerimiento / decision Fase 3 | ADR que lo cubre | Evidencia |
 |---|---|---|
-| Target, grano y contrato del forecast | 0015 | `prod_pet` mensual con grano `id_pozo + periodo_mes`. |
-| Tracking, registry y alias de modelo | 0016 | MLflow como fuente primaria local, con alias `champion`. |
-| Feature store offline | 0017 | Postgres y tabla `features.pozo_monthly_features`. |
-| Baseline y promotion gate | 0018 | Baseline `prod_pet_lag_1` y gate que compara candidato, baseline y champion. |
-| Orquestacion de retraining | 0019 | Dagster con `ml_training_job` y `ml_retraining_monthly`. |
-| Serving predictivo | 0020 | FastAPI con feature enrichment, adapter MLflow/fallback y metadata runtime. |
-| CI de pipeline ML | 0021 | Fixture chico y smoke end-to-end en `ml-ci.yml`. |
-| Prediction logs | 0022 | Persistencia en `metadata.prediction_logs`. |
-| Drift check minimo | 0023 | Check desacoplado del serving con z-score y flag `drifted`. |
+| Feature store persistido y usado en inferencia | [0017](0017-usar-postgres-como-feature-store.md) | Schema `features` (`postgres-init/02_features_schema.sql`), `ml/build_features.py`, lookup de inferencia en `app/feature_lookup.py` |
+| Training reproducible (target, grano y contrato) | [0015](0015-definir-target-y-grano-de-forecasting.md), [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | `docs/contracts.md`, `ml/train.py` con split temporal y baseline `prod_pet_lag_1` |
+| Validation / promotion gate | [0018](0018-definir-modelo-baseline-y-gate-de-promocion.md) | `ml/promotion_gate.py`, `gate_decision.json` por run, assert `promoted=true` en `scripts/data-ml-ci-smoke.sh` |
+| Orquestacion / retraining recurrente y por dia dado | [0019](0019-orquestar-retraining-con-dagster-vs-airflow.md) | `dagster/dwh_pipeline/definitions.py` (`ml_training_job`, `ml_retraining_monthly`), `scripts/retrain-model.sh` |
+| Experiment tracking | [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Servicio `mlflow` en `docker-compose.yml`, runs logueados por `ml/train.py`, `scripts/mlflow-smoke.sh` |
+| Model registry versionado | [0016](0016-usar-mlflow-para-tracking-y-registry.md) | Modelo `oilgas_forecaster` con alias `champion`, verificacion de alias en `scripts/data-ml-ci-smoke.sh` |
+| API serving del modelo validado | [0020](0020-servir-modelo-con-fastapi-feature-enrichment-y-adapter.md) | `app/api.py` (`/api/v1/forecast`), adapter `app/model_registry.py` con fallback visible, `scripts/api-forecast-smoke.sh` |
+| Prediction logs | [0022](0022-registrar-prediction-logs-en-postgres.md) | `app/prediction_logging.py`, tabla `metadata.prediction_logs` |
+| Drift / observabilidad ML | [0023](0023-drift-check-minimo-sin-monitoring-productivo.md) | `ml/drift_check.py` (z-score y `drifted` por feature), `scripts/run-drift-check.sh`, `features.feature_reference_stats` |
+| CI/CD del pipeline ML | [0021](0021-ci-con-fixture-chico-para-pipeline-ml.md) | `.github/workflows/ml-ci.yml`, `scripts/data-ml-ci-smoke.sh`, fixture `tests/fixtures/ml_ci_fixture.sql` |
 
 ## Criterio de cierre
 

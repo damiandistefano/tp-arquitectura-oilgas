@@ -2,7 +2,7 @@ name: ML CI
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   push:
     branches:
       - main
@@ -31,6 +31,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Validate Dagster ML job and schedule
+        run: |
+          # Venv aislado: dagster no esta en requirements-dev y no debe
+          # pisar las versiones del pipeline ML que corre en este runner.
+          python -m venv "$RUNNER_TEMP/dagster-venv"
+          "$RUNNER_TEMP/dagster-venv/bin/pip" install --quiet "$(grep '^dagster==' dagster/requirements.txt)"
+
+          export DAGSTER_HOME="$RUNNER_TEMP/dagster_home"
+          mkdir -p "$DAGSTER_HOME"
+
+          JOBS="$(PYTHONPATH=dagster "$RUNNER_TEMP/dagster-venv/bin/dagster" job list -m dwh_pipeline.definitions)"
+          echo "$JOBS"
+          echo "$JOBS" | grep -q ml_training_job
+
+          SCHEDULES="$(PYTHONPATH=dagster "$RUNNER_TEMP/dagster-venv/bin/dagster" schedule list -m dwh_pipeline.definitions)"
+          echo "$SCHEDULES"
+          echo "$SCHEDULES" | grep -q ml_retraining_monthly
 
       - name: Start postgres, mlflow and api
         run: |
