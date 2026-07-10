@@ -5,8 +5,8 @@ Trabajo integrador de Ingenieria de Software para un sistema predictivo de produ
 El repo presenta una plataforma integral construida en tres fases:
 
 - Fase 1: API REST FastAPI, Docker, CI/CD, GHCR, despliegue sandbox y monitoreo tecnico.
-- Fase 2 / Adenda 2: plataforma de datos con warehouse PostgreSQL, arquitectura Medallion, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
-- Fase 3 / Adenda 3: ML Engineering con feature store offline, training batch, baseline, promotion gate, MLflow (tracking + registry), model serving, prediction logs, drift check y CI de ML.
+- Fase 2: plataforma de datos con warehouse PostgreSQL, arquitectura Medallion, Dagster, dbt, calidad persistida, capa semantic, BI en Metabase y gobierno de datos con DataHub.
+- Fase 3: ML Engineering con feature store offline, training batch, baseline, promotion gate, MLflow (tracking + registry), model serving, prediction logs, drift check y CI de ML.
 
 La entrega sigue siendo un sandbox academico. No se presenta como una plataforma productiva con alta disponibilidad, gobierno enterprise o despliegue multiambiente completo.
 
@@ -51,46 +51,34 @@ datos publicos (datos.gob.ar)
 
 ### Alcance de la evaluacion
 
-- La evaluacion reproducible es local con Docker Compose (`docker-compose.yml`).
-- El sandbox AWS es opcional y complementario: evidencia de deploy de Fase 1 y de DataHub, no camino oficial de correccion.
-- La demo ML model-backed de Adenda 3 se valida localmente y no depende de IPs publicas prendidas.
-- No se promete produccion real: sin alta disponibilidad, autoscaling, forecast recursivo ni Adenda 3 en AWS.
+- La evaluacion oficial y reproducible es local con Docker Compose (`docker-compose.yml`). No se requiere ningun servicio publico activo.
+- AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia, no parte del camino oficial de correccion. Estan apagados para la entrega.
+- La demo ML model-backed de Fase 3 se valida localmente y no depende de servicios publicos.
+- No se promete produccion real: sin alta disponibilidad, autoscaling, forecast recursivo ni Fase 3 en AWS.
 
 ---
 
-## Sandbox AWS opcional (evidencia complementaria)
+## Evaluacion local y sandbox AWS historico
 
-El camino oficial y reproducible de la entrega es el stack local con Docker Compose (ver secciones siguientes). Las instancias AWS son un sandbox opcional que complementa la evidencia de Fase 1 (deploy de API + monitoreo desde GHCR) y de gobierno de datos (DataHub). Pueden estar apagadas sin afectar la validacion de Adenda 3.
+La evaluacion oficial y reproducible de la entrega es el stack local con Docker Compose (ver secciones siguientes). No se requiere ningun servicio publico activo.
 
-IPs del sandbox cuando esta encendido:
+Durante el desarrollo se uso un sandbox AWS temporal como evidencia complementaria: una EC2 con el deploy de Fase 1 (API + monitoreo desde GHCR) y una EC2 dedicada para DataHub. Esas instancias estan apagadas para la entrega y no forman parte del camino de correccion. Los runbooks quedan documentados con placeholders (`<sandbox-api-host>`, `<datahub-host>`) por si se quiere reproducir el sandbox en una instancia propia:
 
-- Sandbox API + monitoreo: `18.118.45.3`
-- DataHub (gobierno de datos): `18.118.110.246`
+- [docs/runbooks/deploy-aws.md](docs/runbooks/deploy-aws.md)
+- [docs/runbooks/sandbox-validation.md](docs/runbooks/sandbox-validation.md)
+- [docs/runbooks/datahub.md](docs/runbooks/datahub.md)
 
-Metabase y Dagster no se exponen en el sandbox: se levantan localmente con `docker compose up` (ver mas abajo).
-
-### Fase 1 (sandbox opcional)
-
-| Servicio | URL | Credenciales / notas |
-|---|---|---|
-| API | `http://18.118.45.3:8000` | - |
-| Swagger / OpenAPI UI | `http://18.118.45.3:8000/docs` | Header `X-API-Key: abcdef12345` para endpoints funcionales |
-| OpenAPI JSON | `http://18.118.45.3:8000/openapi.json` | - |
-| Grafana | `http://18.118.45.3:3000` | `admin` / `pKNF9UsS4mzDtnA` |
-| Prometheus | `http://18.118.45.3:9090` | - |
-| Alertmanager | `http://18.118.45.3:9093` | Slack real solo si se configura webhook valido |
-
-### Fase 2 (stack local + DataHub opcional)
+### Stack de datos y BI (local)
 
 | Servicio | URL | Estado de entrega |
 |---|---|---|
 | PostgreSQL warehouse | `localhost:5433` desde host / `postgres:5432` desde contenedores | Implementado en `docker-compose.yml` |
-| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos y del retraining ML (`dagster/dwh_pipeline/`). Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
-| Metabase | `http://localhost:3001` (local) | BI sobre vistas `semantic.*`; usuario `martinbianchi@udesa.edu.ar` / `Admin1234!`. Se levanta localmente con `docker compose up`; no expuesto en el sandbox |
+| Dagster | `http://localhost:3002` (local) | Orquestador del pipeline de datos y del retraining ML (`dagster/dwh_pipeline/`). Se levanta con `docker compose up` |
+| Metabase | `http://localhost:3001` (local) | BI sobre vistas `semantic.*`; usuario `martinbianchi@udesa.edu.ar` / `Admin1234!`. Se levanta con `docker compose up` |
 | dbt Docs | local, generado con `dbt docs generate` | Evidencia de modelos, tests y lineage de dbt |
-| DataHub | `http://18.118.110.246:9002` (opcional) | Catalogo de metadata del warehouse en EC2 dedicada; usuario `datahub` / `datahub` |
+| DataHub | `http://<datahub-host>:9002` (stack externo) | Catalogo de metadata del warehouse; evidencia en video/capturas; usuario `datahub` / `datahub` |
 
-DataHub no aparece en el `docker-compose.yml` principal de este repo porque su quickstart es pesado. Se opera como stack externo en una EC2 dedicada y on-demand. Ver [docs/runbooks/datahub.md](docs/runbooks/datahub.md).
+DataHub no aparece en el `docker-compose.yml` principal de este repo porque su quickstart es pesado. Se opera como stack externo en un host dedicado y on-demand. Ver [docs/runbooks/datahub.md](docs/runbooks/datahub.md).
 
 ---
 
@@ -218,9 +206,9 @@ docker compose down
 
 ---
 
-## Demo Adenda 3 (local)
+## Demo Fase 3 (local)
 
-La demo model-backed de Adenda 3 se valida localmente con el Compose completo.
+La demo model-backed de Fase 3 se valida localmente con el Compose completo.
 La primera vez despues del cambio de MLflow hay que resetear volumenes para que
 el experimento use `mlflow-artifacts:/` y el tracking server proxy artifacts por HTTP.
 
@@ -335,7 +323,7 @@ Endpoints principales:
 | `GET` | `/docs` | Swagger/OpenAPI. |
 
 `/api/v1/wells` conserva el contrato legacy de Fase 1 con `id_well`. El contrato
-vigente de Adenda 3 para inferencia es `/api/v1/forecast` con `id_pozo`.
+vigente de Fase 3 para inferencia es `/api/v1/forecast` con `id_pozo`.
 
 Ejemplos:
 
@@ -454,11 +442,11 @@ Rollback:
 Smoke test del sandbox:
 
 ```bash
-bash scripts/sandbox-smoke.sh 18.118.45.3
+bash scripts/sandbox-smoke.sh <sandbox-api-host>
 ```
 
 `docker-compose.deploy.yml` no incluye Postgres ni MLflow. Por eso el forecast
-model-backed de Adenda 3 no se valida en la EC2: el sandbox AWS valida API y
+model-backed de Fase 3 no se valida en la EC2: el sandbox AWS validaba API y
 monitoreo de Fase 1; la demo ML se valida local con `docker-compose.yml`.
 
 ---
@@ -486,7 +474,7 @@ Fase 2:
 - Vistas SQL como semantic layer.
 - DataHub como catalogo de gobierno de datos.
 
-Adenda 3:
+Fase 3:
 
 - MLflow para tracking, registry y alias `champion`.
 - Postgres como feature store offline.
@@ -519,7 +507,7 @@ Limitaciones asumidas:
 
 - El serving es de alcance sandbox academico: no hay alta disponibilidad,
   canary releases ni plataforma enterprise de modelos.
-- El forecast model-backed de Adenda 3 se valida localmente; el compose de deploy
+- El forecast model-backed de Fase 3 se valida localmente; el compose de deploy
   AWS no incluye Postgres ni MLflow.
 - El forecast mensual opera sobre periodos existentes en el feature store; no se
   implementa generacion recursiva de meses futuros.

@@ -2,7 +2,9 @@
 
 Este documento describe el proceso para desplegar la API en una instancia EC2 o en un sandbox Linux equivalente.
 
-Para Fase 1, el objetivo mínimo es dejar accesible la API mock desde una IP pública y validar que responde correctamente. El stack completo de monitoreo puede desplegarse en la misma instancia si se quiere validar Prometheus, Grafana, Alertmanager y cAdvisor.
+El sandbox AWS fue un entorno temporal de desarrollo/evidencia y está apagado para la entrega: la evaluación oficial es local con Docker Compose y no requiere servicios públicos activos. Este runbook usa placeholders (`<sandbox-api-host>`) para reproducir el deploy en una instancia propia si se quiere.
+
+Para Fase 1, el objetivo mínimo es dejar accesible la API desde la instancia y validar que responde correctamente. El stack completo de monitoreo puede desplegarse en la misma instancia si se quiere validar Prometheus, Grafana, Alertmanager y cAdvisor.
 
 ---
 
@@ -75,10 +77,10 @@ El archivo `.env` debe existir solo en el servidor o en entornos locales control
 
 ## 4. Preparación inicial del servidor
 
-Conectarse a la instancia. La instancia de la entrega es Amazon Linux (`ec2-user`) con IP `18.118.45.3` y llave `tp-soft.pem`:
+Conectarse a la instancia propia. El sandbox usado durante el desarrollo era Amazon Linux (`ec2-user`); reemplazar `<sandbox-api-host>` por la IP o hostname de la instancia y usar la llave propia:
 
 ```bash
-ssh -i tp-soft.pem ec2-user@18.118.45.3
+ssh -i tp-soft.pem ec2-user@<sandbox-api-host>
 ```
 
 Si se reprovisiona sobre una AMI Ubuntu, el usuario es `ubuntu` en vez de `ec2-user`.
@@ -111,7 +113,7 @@ Existe `scripts/initial_setup.sh` para preparar o reconstruir el sandbox siguien
 Uso:
 
 ```bash
-INSTANCE_IP=18.118.45.3 \
+INSTANCE_IP=<sandbox-api-host> \
 PEM_KEY=./tu-key.pem \
 EC2_USER=ec2-user \
 bash scripts/initial_setup.sh
@@ -187,20 +189,20 @@ curl -f http://localhost:8000/openapi.json
 Desde una máquina externa:
 
 ```bash
-curl -f http://18.118.45.3:8000/openapi.json
+curl -f http://<sandbox-api-host>:8000/openapi.json
 ```
 
 Endpoint funcional:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://18.118.45.3:8000/api/v1/wells?date_query=2026-03-15"
+  "http://<sandbox-api-host>:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 Swagger:
 
 ```text
-http://18.118.45.3:8000/docs
+http://<sandbox-api-host>:8000/docs
 ```
 
 ---
@@ -289,10 +291,10 @@ curl -f http://localhost:9093/-/healthy
 Desde afuera, si los puertos están abiertos:
 
 ```text
-http://18.118.45.3:8000/docs
-http://18.118.45.3:3000
-http://18.118.45.3:9090
-http://18.118.45.3:9093
+http://<sandbox-api-host>:8000/docs
+http://<sandbox-api-host>:3000
+http://<sandbox-api-host>:9090
+http://<sandbox-api-host>:9093
 ```
 
 ---
@@ -302,13 +304,13 @@ http://18.118.45.3:9093
 Desde la máquina local:
 
 ```bash
-bash scripts/sandbox-smoke.sh 18.118.45.3
+bash scripts/sandbox-smoke.sh <sandbox-api-host>
 ```
 
 O:
 
 ```bash
-bash scripts/sandbox-smoke.sh http://18.118.45.3
+bash scripts/sandbox-smoke.sh http://<sandbox-api-host>
 ```
 
 También existe workflow manual:

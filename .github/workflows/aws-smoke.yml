@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Base URL without trailing slash. Example: http://52.15.50.130"
+        description: "Base URL without trailing slash. Example: http://<sandbox-api-host>"
         required: true
         type: string
 

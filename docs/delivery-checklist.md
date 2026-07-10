@@ -1,8 +1,8 @@
-# Checklist de entrega - Trabajo integrador (Fase 1 + Adenda 2 + Adenda 3)
+# Checklist de entrega - Trabajo integrador (Fase 1 + Fase 2 + Fase 3)
 
-Este documento es la verdad operativa para cerrar la entrega completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 / Adenda 2 (plataforma de datos) y Fase 3 / Adenda 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
+Este documento es la verdad operativa para cerrar la entrega completa: Fase 1 (API, Docker, CI/CD, monitoreo), Fase 2 (plataforma de datos) y Fase 3 (ML Engineering). Si un componente no puede mostrarse o validarse, se deja aclarado como limitacion y no se promete como productivo.
 
-La validacion obligatoria y reproducible es local con Docker Compose. El sandbox AWS es opcional y complementario: suma evidencia pero no bloquea la entrega.
+La validacion oficial y reproducible es local con Docker Compose: no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega.
 
 Responsables por area:
 
@@ -27,7 +27,7 @@ Responsables por area:
 | DataHub / governance | I3 | Stack externo en EC2 dedicada | UI `:9002`, datasets del warehouse, columnas/tipos y metadata tecnica |
 | Documentacion | I3 + equipo | Lista para entrega | README, ADRs, runbooks, contratos y checklist coherentes |
 
-### Adenda 3 - ML Engineering
+### Fase 3 - ML Engineering
 
 | Componente | Responsable | Estado para entrega | Evidencia esperada |
 |---|---|---|---|
@@ -46,18 +46,18 @@ Nota sobre DataHub: no aparece en el `docker-compose.yml` principal porque su qu
 
 ---
 
-## 1.1 Instancias e IPs para la demo
+## 1.1 Entornos de la demo
 
-La validacion oficial es local. Las instancias AWS son sandbox opcional/evidencia complementaria; si estan apagadas, la entrega se valida igual con el stack local. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
+La validacion oficial es local; no se requiere ningun servicio publico activo. AWS y DataHub fueron sandboxes temporales de desarrollo/evidencia y estan apagados para la entrega; los runbooks quedan con placeholders por si se quiere reproducirlos en una instancia propia. No commitear llaves `.pem`, `.env` reales ni capturas con secretos.
 
-| Instancia | Uso | URL/IP a validar | Caracter |
+| Entorno | Uso | URL a validar | Caracter |
 |---|---|---|---|
 | Stack ML local (obligatorio) | Postgres, MLflow, API, Dagster | `http://localhost:5000` (MLflow), `http://localhost:8000` (API), `http://localhost:3002` (Dagster) | Validacion local reproducible |
 | Stack de datos (obligatorio) | Postgres, Dagster, Metabase, dbt | `http://localhost:3002` (Dagster) y `http://localhost:3001` (Metabase), con `docker compose up` | Validacion local reproducible |
-| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://18.118.45.3` (`:8000` `:3000` `:9090` `:9093`) | AWS opcional |
-| DataHub | Catalogo/governance | `http://18.118.110.246:9002` | AWS opcional |
+| Sandbox API/monitoreo | API, Swagger, Prometheus, Grafana, Alertmanager, cAdvisor | `http://<sandbox-api-host>` (`:8000` `:3000` `:9090` `:9093`) | Historico, apagado para la entrega |
+| DataHub | Catalogo/governance | `http://<datahub-host>:9002` | Historico, apagado para la entrega |
 
-Dagster y Metabase no se exponen en el sandbox: se levantan localmente con `docker compose up`. El profe puede correrlos en su maquina con las instrucciones del README, o verlos en la demo en vivo.
+El profe puede levantar todo el stack local en su maquina con las instrucciones del README, o verlo en la demo en vivo / video.
 
 ---
 
@@ -201,7 +201,7 @@ dbt docs serve
 
 Validar modelos, columnas, tests y lineage.
 
-### Adenda 3 local
+### Fase 3 local
 
 Primera corrida despues del cambio de MLflow:
 
@@ -224,13 +224,13 @@ Evidencia minima:
 - `metadata.prediction_logs` tiene una fila `success` con `model_source = mlflow`;
 - drift check corre y muestra `drifted` por feature.
 
-### DataHub (sandbox AWS opcional)
+### DataHub (sandbox historico, apagado para la entrega)
 
-Validar en la EC2 dedicada antes de grabar o mostrar la demo, solo si se muestra el sandbox:
+Solo aplica si se decide reproducir el sandbox en una instancia propia; la evidencia de la entrega es el video/capturas:
 
 | Dato | Valor |
 |---|---|
-| URL cuando esta encendida | `http://18.118.110.246:9002` |
+| URL del host propio | `http://<datahub-host>:9002` |
 | Como se levanta | EC2 dedicada. Por disco acotado el CLI `datahub docker quickstart` no entra; se levanta el compose cacheado: `cd ~/.datahub/quickstart && COMPOSE_PROFILES=quickstart DATAHUB_VERSION=v1.5.0.6 docker compose -p datahub -f docker-compose.yml --env-file .local-secrets.env up -d --pull never` |
 | Credenciales | `datahub` / `datahub` |
 | Ingesta | `datahub ingest -c datahub/recipe.postgres.yml` |
@@ -260,7 +260,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 | 0009-0012 | Presentes, I2: Medallion, Gold, calidad, Semantic |
 | 0013 | Presente, I3: DataHub / governance |
 | 0014 | Presente, I2: Metabase / BI |
-| 0015-0023 | Presentes, Adenda 3: forecasting, MLflow, feature store, gate, retraining, serving, ML CI, prediction logs y drift |
+| 0015-0023 | Presentes, Fase 3: forecasting, MLflow, feature store, gate, retraining, serving, ML CI, prediction logs y drift |
 
 ### Runbooks
 
@@ -316,7 +316,7 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 - [ ] Metabase muestra dashboard con datos.
 - [ ] dbt Docs muestra lineage.
 
-#### Fase 3 / Adenda 3 - ML Engineering
+#### Fase 3 - ML Engineering
 
 - [ ] `docker compose down -v` ejecutado al menos una vez despues del cambio de MLflow.
 - [ ] Feature store poblado: `features.pozo_monthly_features` con grano `id_pozo + periodo_mes`.
@@ -339,20 +339,20 @@ Ver indice completo en [docs/adr/README.md](adr/README.md).
 #### Documentacion
 
 - [ ] README refleja el estado real y tiene la seccion "Arquitectura completa de la solucion".
-- [ ] ADRs tienen alternativas y trade-offs; el indice cubre Adenda 3.
+- [ ] ADRs tienen alternativas y trade-offs; el indice cubre Fase 3.
 - [ ] Runbooks tienen pasos, validacion y que hacer si falla.
 - [ ] No quedan TODOs ni frases de borrador; las URLs variables de entrega estan identificadas como sandbox opcional.
 - [ ] No se promete produccion real ni alta disponibilidad.
 
-### Sandbox AWS opcional (complementario)
+### Sandbox AWS (historico, solo si se reproduce en instancia propia)
 
 - [ ] Imagen GHCR publicada para el commit final si se usa deploy desde registry.
-- [ ] Smoke test de AWS ejecutado por script o workflow manual si se muestra EC2.
-- [ ] DataHub abre en `:9002` y muestra datasets del warehouse si se muestra la EC2 dedicada.
+- [ ] Smoke test de AWS ejecutado por script o workflow manual si se reproduce el sandbox.
+- [ ] DataHub abre en `:9002` y muestra datasets del warehouse si se reproduce la EC2 dedicada.
 
 ### Cierre de entrega
 
-- [ ] Video de Adenda 3 grabado (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
+- [ ] Video de Fase 3 grabado (5-10 min): arquitectura, herramientas, rationale, runs comparables en MLflow, retraining, gate que promueve y gate que rechaza, forecast 200 `source = mlflow`, prediction logs y drift.
 - [ ] `develop` tiene todos los merges y CI en verde.
 - [ ] PR `develop -> main` abierto, revisado y mergeado.
 - [ ] Tag de release `v0.3.0` creado en `main` (v0.1.0 y v0.2.0 ya existen de fases anteriores).

@@ -39,11 +39,11 @@ La API expone por defecto (sin configuración adicional):
 - `/openapi.json` — especificación OpenAPI en JSON.
 
 Estos endpoints están activos en cualquier ambiente donde corra la API.
-En el sandbox EC2 son accesibles como:
+En una instancia propia (reemplazando `<sandbox-api-host>` por su IP o hostname) son accesibles como:
 
 ```text
-http://18.118.45.3:8000/docs
-http://18.118.45.3:8000/openapi.json
+http://<sandbox-api-host>:8000/docs
+http://<sandbox-api-host>:8000/openapi.json
 ```
 
 No requieren autenticación. Los endpoints funcionales sí requieren `X-API-Key: abcdef12345`.
@@ -89,7 +89,7 @@ Se considera aceptable porque:
 
 ## Ambiente objetivo
 
-El ambiente objetivo es una instancia AWS EC2 usada como sandbox.
+El ambiente objetivo es una instancia AWS EC2 usada como sandbox. El sandbox usado durante el desarrollo fue temporal y está apagado para la entrega: la evaluación oficial es local con Docker Compose y no requiere servicios públicos activos.
 
 Servicios del stack completo:
 
@@ -152,15 +152,15 @@ curl -f http://localhost:3000/api/health
 Para validar desde afuera:
 
 ```bash
-curl -f http://18.118.45.3:8000/openapi.json
-curl -f http://18.118.45.3:3000/api/health
+curl -f http://<sandbox-api-host>:8000/openapi.json
+curl -f http://<sandbox-api-host>:3000/api/health
 ```
 
 Para validar endpoint protegido:
 
 ```bash
 curl -H "X-API-Key: abcdef12345" \
-  "http://18.118.45.3:8000/api/v1/wells?date_query=2026-03-15"
+  "http://<sandbox-api-host>:8000/api/v1/wells?date_query=2026-03-15"
 ```
 
 ---

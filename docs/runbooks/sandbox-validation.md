@@ -1,8 +1,8 @@
 # Runbook: Validación Sandbox (EC2)
 
-Quién lo ejecuta y cuándo: integrante responsable de operación, una vez que el deploy en EC2 está activo.
+Quién lo ejecuta y cuándo: integrante responsable de operación, una vez que el deploy en una EC2 propia está activo.
 
-Este runbook sirve para validar que el sandbox de Fase 1 sigue operativo y que los componentes principales responden correctamente.
+Este runbook sirve para validar que un sandbox de Fase 1 desplegado según [deploy-aws.md](deploy-aws.md) responde correctamente. El sandbox usado durante el desarrollo está apagado para la entrega: la evaluación oficial es local y este runbook usa el placeholder `<sandbox-api-host>` (reemplazar por la IP o hostname de la instancia propia).
 
 ---
 
@@ -25,13 +25,13 @@ Este runbook sirve para validar que el sandbox de Fase 1 sigue operativo y que l
 
 | Servicio | URL | Credenciales |
 |---|---|---|
-| API — Swagger | `http://18.118.45.3:8000/docs` | Header `X-API-Key: abcdef12345` |
-| API — Health | `http://18.118.45.3:8000/health` | — |
-| API — Metrics | `http://18.118.45.3:8000/metrics` | — |
-| Prometheus | `http://18.118.45.3:9090` | — |
-| Grafana | `http://18.118.45.3:3000` | `admin` / `pKNF9UsS4mzDtnA` |
-| Alertmanager | `http://18.118.45.3:9093` | — |
-| cAdvisor | `http://18.118.45.3:8080` | — |
+| API — Swagger | `http://<sandbox-api-host>:8000/docs` | Header `X-API-Key: abcdef12345` |
+| API — Health | `http://<sandbox-api-host>:8000/health` | — |
+| API — Metrics | `http://<sandbox-api-host>:8000/metrics` | — |
+| Prometheus | `http://<sandbox-api-host>:9090` | — |
+| Grafana | `http://<sandbox-api-host>:3000` | `admin` / `pKNF9UsS4mzDtnA` |
+| Alertmanager | `http://<sandbox-api-host>:9093` | — |
+| cAdvisor | `http://<sandbox-api-host>:8080` | — |
 
 ---
 
@@ -40,13 +40,13 @@ Este runbook sirve para validar que el sandbox de Fase 1 sigue operativo y que l
 Desde la raíz del repo:
 
 ```bash
-bash scripts/sandbox-smoke.sh 18.118.45.3
+bash scripts/sandbox-smoke.sh <sandbox-api-host>
 ```
 
 También acepta URL completa:
 
 ```bash
-bash scripts/sandbox-smoke.sh http://18.118.45.3
+bash scripts/sandbox-smoke.sh http://<sandbox-api-host>
 ```
 
 El script valida:
@@ -86,8 +86,8 @@ Completar tras el smoke test para dejar evidencia de entrega.
 
 ### Prometheus
 
-- [ ] `http://18.118.45.3:9090/targets` muestra `oilgas-api` en estado **UP**.
-- [ ] `http://18.118.45.3:9090/rules` muestra reglas cargadas: `APIDown`, `HighErrorRate`, `HighLatency`, `APIRecovered`.
+- [ ] `http://<sandbox-api-host>:9090/targets` muestra `oilgas-api` en estado **UP**.
+- [ ] `http://<sandbox-api-host>:9090/rules` muestra reglas cargadas: `APIDown`, `HighErrorRate`, `HighLatency`, `APIRecovered`.
 
 ### Grafana
 
@@ -108,13 +108,13 @@ Completar tras el smoke test para dejar evidencia de entrega.
 Para poblar métricas del dashboard:
 
 ```bash
-API=http://18.118.45.3:8000 bash scripts/generate_traffic.sh
+API=http://<sandbox-api-host>:8000 bash scripts/generate_traffic.sh
 ```
 
 También se acepta:
 
 ```bash
-API_URL=http://18.118.45.3:8000 bash scripts/generate_traffic.sh
+API_URL=http://<sandbox-api-host>:8000 bash scripts/generate_traffic.sh
 ```
 
 El script genera tráfico válido, errores 403 y errores 500 de debug para validar métricas y alertas.
@@ -191,7 +191,7 @@ Completar antes de entregar:
 | Screenshot de Prometheus targets | [ ] | `oilgas-api` en UP. |
 | Screenshot de reglas de alerta | [ ] | Mostrar reglas cargadas. |
 | Screenshot de Alertmanager | [ ] | Estado limpio o alerta de prueba. |
-| URLs del sandbox si se muestra | [ ] | Ver sección "Sandbox AWS opcional" en README.md. IPs del sandbox: API/monitoreo `18.118.45.3`, DataHub `18.118.110.246`. El sandbox es evidencia complementaria; la validación oficial es local. |
+| URLs del sandbox si se reproduce | [ ] | Ver sección "Evaluacion local y sandbox AWS historico" en README.md. Placeholders: API/monitoreo `<sandbox-api-host>`, DataHub `<datahub-host>`. El sandbox está apagado para la entrega; la validación oficial es local. |
 
 ---
 
