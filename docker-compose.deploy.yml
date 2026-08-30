@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/damiandistefano/tp-arquitectura-oilgas/oilgas-api:${IMAGE_TAG:-latest}
+    image: ${GHCR_IMAGE:-ghcr.io/damiandistefano/tp-arquitectura-oilgas/oilgas-api}:${IMAGE_TAG:-latest}
     container_name: oilgas-api
     ports:
       - "${API_PORT:-8000}:8000"

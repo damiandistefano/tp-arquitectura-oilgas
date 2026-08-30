@@ -182,13 +182,16 @@ jobs:
           fi
 
       - name: Validate GHCR deploy compose with local image
+        env:
+          GHCR_IMAGE: ghcr.io/${{ github.repository }}/oilgas-api
         run: |
           set -e
 
-          docker tag oilgas-api ghcr.io/${{ github.repository }}/oilgas-api:ci
+          docker tag oilgas-api "${GHCR_IMAGE}:ci"
 
           cleanup() {
             COMPOSE_PROJECT_NAME=deployvalidation \
+            GHCR_IMAGE="${GHCR_IMAGE}" \
             IMAGE_TAG=ci \
             API_PORT=8002 \
             docker compose -f docker-compose.deploy.yml down || true
@@ -197,6 +200,7 @@ jobs:
           trap cleanup EXIT
 
           COMPOSE_PROJECT_NAME=deployvalidation \
+          GHCR_IMAGE="${GHCR_IMAGE}" \
           IMAGE_TAG=ci \
           API_PORT=8002 \
           docker compose -f docker-compose.deploy.yml up -d
@@ -214,6 +218,7 @@ jobs:
           if [ "$API_UP" = false ]; then
             echo "Deploy compose API did not become healthy"
             COMPOSE_PROJECT_NAME=deployvalidation \
+            GHCR_IMAGE="${GHCR_IMAGE}" \
             IMAGE_TAG=ci \
             API_PORT=8002 \
             docker compose -f docker-compose.deploy.yml logs
